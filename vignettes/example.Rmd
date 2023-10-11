@@ -1,0 +1,26 @@
+---
+title: "example"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{example}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(standardanalysis)
+```
+
+# Loading your data
+Here is an example how you can import your data. You can load test data by not giving import_data() any arguments.
+```{r usage example}
+ps <- import_data()
+ps
+```

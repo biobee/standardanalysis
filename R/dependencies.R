@@ -1,0 +1,21 @@
+# What to do wiz thiz
+if (!require("BiocManager")) install.packages("BiocManager")
+if (!require("vegan")) install.packages("vegan")
+if (!require("ggfortify")) install.packages("ggfortify")
+if (!require("config")) install.packages("config")
+if (!require("pheatmap")) install.packages("pheatmap")
+
+library("BiocManager")
+if (!require("microbiome")) BiocManager::install("microbiome")
+if (!require("ALDEx2")) BiocManager::install("ALDEx2")
+if (!require("ANCOMBC")) BiocManager::install("ANCOMBC")
+if (!require("Maaslin2")) BiocManager::install("Maaslin2")
+
+library("microbiome")
+library("vegan")
+library("ggfortify")
+library("config")
+library("pheatmap")
+library("ALDEx2")
+library("ANCOMBC")
+library("Maaslin2")
