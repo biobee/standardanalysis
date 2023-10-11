@@ -13,8 +13,9 @@ Feel free to change any settings to your preference. See the microbiome and phyl
 Dependencies (R-packages):
 - These will all be handled inside of the Rmd file.
 
+To install (with vignettes)
 ``` r
-GitHub install standardanalysis
+devtools::install_github("plasde/standardanalysis", build_vignettes = TRUE)
 ```
 
 Input:
