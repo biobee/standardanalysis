@@ -1,8 +1,8 @@
 # Preliminary analysis pipeline
 
 This script is a quick way to explore your data. It gives an overview of the raw data,
-after which you can decide yourself on the sampling depth. It will provide alpha-diversity boxplots (Shannon, Simpson), relative abundance barplots are shown and a PCA is performed.
-Feel free to change any settings to your preference. See the microbiome and phyloseq packages (Microbiome: https://microbiome.github.io/tutorials/, Phyloseq: https://joey711.github.io/phyloseq/) for the options. Else, just use the default settings. If you do want to try different parameters but coding is too difficult for now, try out the R-Shiny App.
+after which you can decide yourself on the sampling depth for subsampling (if you want to do that). It will provide alpha-diversity boxplots (Shannon, Simpson), relative abundance barplots, PCA, heatmaps, PERMANOVA and differential abundance analysis with Aldex2, ANCOM-BC2 and/or Maaslin2.
+Use the option to adjust settings in the functions to your preference. See the microbiome and phyloseq packages (Microbiome: https://microbiome.github.io/tutorials/, Phyloseq: https://joey711.github.io/phyloseq/) for the (other) options. Else, just use the default settings.
 
 ## Software pre-requisites:
 - R - [Windows download](https://cran.r-project.org/bin/windows/base/)
@@ -19,10 +19,10 @@ devtools::install_github("plasde/standardanalysis", build_vignettes = TRUE)
 ```
 
 Input:
-- Mapping file (.txt) (tab-delimited)
 - BIOM file (.biom)
+- Mapping file (.txt) (tab-delimited)
 - config.yml (You can find it on this page, fill in some information about your data)
-- scripts folder (feel free to change the content if you want to play around)
+- scripts folder (feel free to change the content if you want to learn more / play around)
 
 
 ## Running the analysis

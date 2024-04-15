@@ -1,6 +1,18 @@
-rare_curve <- function(ps, ...) {
-	abutab <- t(microbiome::abundances(ps))
-	vegan::rarecurve(abutab,
+#' Rarecurve for estimating rarefaction depth
+#'
+#' @param pseq Your phyloseq object.
+#' @param ... Other arguments to be passed to vegan::rarecurve
+#'
+#' @return A rarecurve.
+#' @export
+#'
+#' @examples rare_curve(ps)
+
+rare_curve <- function(pseq,
+                       ...) {
+
+	abu_table <- t(microbiome::abundances(pseq))
+	vegan::rarecurve(abu_table,
 			step = 100,
 			col = c("blue", "darkred", "darkgreen", "darkorange", "darkmagenta", "darksalmon"),
 			cex = 0.7,

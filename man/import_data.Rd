@@ -2,19 +2,22 @@
 % Please edit documentation in R/import_data.R
 \name{import_data}
 \alias{import_data}
-\title{Import your data}
+\title{Importing data}
 \usage{
 import_data(name_biom_file, name_mapping_file)
 }
 \arguments{
-\item{name_biom_file}{the biom file, in the form of "config$biom"}
+\item{name_biom_file}{The name of the biom file.}
 
-\item{name_mapping_file}{the mapping file, in the form of "config$mapping"}
+\item{name_mapping_file}{The name of the mapping file.}
 }
 \value{
-a phyloseq object
+pseq A phyloseq object.
 }
 \description{
-Give your biom file and mapping file to create a phyloseq object.
-If the configuration file is not loaded, then a test object will be made.
+This function will import the data you've provided in the config file and make it into a phyloseq object.
+In case no config file was provided, test data is loaded.
+}
+\examples{
+import_data(my_biom_file, my_mapping_file)
 }

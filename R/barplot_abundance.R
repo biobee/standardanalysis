@@ -1,27 +1,44 @@
-barplot_abundance <- function(ps_rared,
-		transf = "compositional",
-		rank = "Family",
-		detection_rate = 5 / 100,
-		prevalence_rate = 2/nrow(meta(ps_rared)), ...) {
+#' Make an abundance barplot
+#'
+#' @param pseq Your phyloseq object.
+#' @param transf Transformation applied to otu counts. Default (and recommended) is relative (aka percentage / "compositional")
+#' @param ... Other arguments to be passed on to both micrbiome::aggregate_rare AND to microbiome::plot_composition.
+#'
+#' @return An abundance barplot.
+#' @export
+#'
+#' @examples barplot_abundance(ps, transf = "compositional", prevalence = 5, detection = 0.2, include.lowest = TRUE, sample.sort = NULL, otu.sort = NULL, average_by = NULL, group_by = NULL)
 
-	total_samples <- phyloseq::nsamples(ps_rared)
-	ps_transf <- microbiome::transform(ps_rared, transf)
+barplot_abundance <- function(pseq,
+		transf = "compositional",
+		...) {
+  args <- list(...)
+
+	ps_transf <- microbiome::transform(pseq, transf)
 	#   merge all taxa that are detected rare
-	ps_rank <- microbiome::aggregate_rare(ps_transf,
-		level = rank,
-		detection = detection_rate,
-		prevalence = prevalence_rate)
-		
+	# Arguments: level, detection, prevalence, include.lowest
+	ps_rank <- microbiome::aggregate_rare(ps_transf, ...)
+
 	plot_rank <- microbiome::plot_composition(ps_rank,
 		plot.type = "barplot",
 		verbose = FALSE, ...) +
-		ggplot2::xlab("Samples") +
 		ggplot2::ylab("Relative abundance") +
-		ggplot2::ggtitle("Abundance barplot") +
-		ggplot2::theme(axis.text.x = element_text(angle = 90,
+	  ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90,
 			vjust = 0.85,
 			hjust = 0)) +
-		ggplot2::scale_fill_brewer(palette = "Paired")
+	  ggplot2::scale_fill_brewer(args$level, palette = "Paired")
+
+	if (!is.null(args$group_by)) {
+	  plot_rank$data <-
+	    base::merge(
+	      plot_rank$data,
+	      microbiome::meta(ps_rank),
+	      sort = F,
+	      all.x = T,
+	      by.x = "Sample",
+	      by.y = "X.SampleID"
+	    )
+	}
 
 	return(plot_rank)
 }
