@@ -17,7 +17,6 @@
 
 rarefy_multiple <- function(pseq,
                             sample.size = NULL,
-                            min_size_threshold = NULL,
                             iter = 10,
                             replace = FALSE,
                             seeds = NULL,
@@ -41,16 +40,7 @@ rarefy_multiple <- function(pseq,
 
   # Define rarefication depth
   if (is.null(sample.size)) {
-    stop("Error: You have to give a subsampling depth\n")
-  }
-
-  # Filter samples by number of reads
-  if (!is.null(min_size_threshold)) {
-    pseq <-
-      phyloseq::prune_samples(phyloseq::sample_sums(pseq) >= min_size_threshold, pseq)
-  } else {
-    pseq <-
-      phyloseq::prune_samples(phyloseq::sample_sums(pseq) >= sample.size, pseq)
+    stop("Error: You have to give a subsampling depth.\n")
   }
 
   # Prepare seed values
@@ -66,7 +56,7 @@ rarefy_multiple <- function(pseq,
                           sample.size = sample.size,
                           replace = replace,
                           verbose = FALSE,
-                          ...
+                          ... # pass additional arguments to  phyloseq::rarefy_even_depth
                         )
                       })
 
@@ -77,6 +67,7 @@ rarefy_multiple <- function(pseq,
   return(res_apply)
 }
 
+# ==============================================================================
 
 #' @describeIn rarefy_multiple Calculating of alpha-diversities
 #'
@@ -114,7 +105,7 @@ calculate_average_alpha_ps <- function(alpha_dataframe,
     )
   average.fun <- match.fun(averagef)
 
-  # As we rely on named alpha_div, check if this exits in the dataframe
+  # As we rely on named alpha_div, check if this exists in the dataframe
   alpha_divs <- names(alpha_dataframe)
   alpha_divs <- alpha_divs[alpha_divs != "X.SampleID"] # continue only with diversity-measures
   if (!all(alpha_div %in% names(alpha_dataframe)))
@@ -140,16 +131,29 @@ calculate_average_alpha_ps <- function(alpha_dataframe,
 
   median_df <- as.data.frame(median_list)
   colnames(median_df) <-
-    paste(substitute(averagef), names(median_df), sep = "_") #or alpha_div input
+    paste(averagef, names(median_df), sep = "_")
   rownames(median_df) <- unique(alpha_dataframe$X.SampleID)
 
   return(median_df)
 }
 
-utils::globalVariables("X.SampleID")
+# utils::globalVariables("X.SampleID")
 
 
 # Alpha div test ===============================================================
+
+.test_kruskal <- function(formula, ...) {
+  return(stats::kruskal.test(formula))
+}
+
+.test_friedman <- function(formula, ...) {
+  args <- list(...)
+  lhs <- deparse(formula[[2]])
+  rhs <- deparse(formula[[3]])
+  return(stats::friedman.test(args[[lhs]], args$data[[args$variable]], args$data[[args$ID]]))
+}
+
+
 multiple_test_alpha <- function(alpha_dataframe,
                                 pseq,
                                 #one pseq object with same metadata as in list
@@ -169,16 +173,15 @@ multiple_test_alpha <- function(alpha_dataframe,
   meta_df <- microbiome::meta(pseq)
   # Are all requested variables in metadata?
   if (!all(c(variable, pair_by) %in% names(meta_df))) {
-    stop_str_meta = paste("At least one of your variables is not in the metadata.\n")
+    stop_str_meta <- "At least one of your variables is not in the metadata.\n"
     stop(stop_str_meta)
   }
   # Are all requested alpha diversities in alpha_data_frame?
   if (!all(alpha_div %in% names(alpha_dataframe))) {
-    stop_str_alpha = paste("At least one of your alpha_divs is not in the alpha data-frame.\n")
+    stop_str_alpha <- "At least one of your alpha_divs is not in the alpha data-frame.\n"
     stop(stop_str_alpha)
   }
   # Can't use t-test / wilcox with more than 2 groups
-  # TODO: ## I.M.O. this should be a stop, not a warning
   if (length(unique(meta_df[[variable]])) > 2 &&
       method %in% c("t.test", "wilcox.test")) {
     stop("T.test or wilcoxon can only handle 2 groups.
@@ -189,19 +192,11 @@ multiple_test_alpha <- function(alpha_dataframe,
     if (!is.null(pair_by)) {
       stop("Kruskal-Wallis cannot test in a paired manner.\n")
     }
-    test.func <-
-      .test_kruskal <-
-      function(formula, ...) {
-        return(stats::kruskal.test(formula))
-      }
+    test.func <- .test_kruskal
   }
+
   if (method == "friedman.test") {
-    test.func <- .test_friedman <- function(formula, ...) {
-      args <- list(...)
-      lhs <- deparse(formula[[2]])
-      rhs <- deparse(formula[[3]])
-      return(stats::friedman.test(args[[lhs]], args$data[[args$variable]], args$data[[args$ID]]))
-    }
+    test.func <- .test_friedman
   }
 
   # Order data for a paired test
@@ -283,17 +278,25 @@ multiple_permanova <- function(list_of_ps,
     warning("Using Bray-Curtis. Data is not log2-transformed.\n")
   }
 
-  if (!is.null(longit)) {
-    warning("Testing with strata / longitudinal.\n")
-    for (e in list_of_ps) {
-      # Apply pseudo inside of loop
-      if (distance == "aitchison") {
-        phyloseq::otu_table(e) <- phyloseq::otu_table(e) + pseudocount
-      }
-      perm <- permute::how(nperm = permutations)
-      dat <- microbiome::meta(e)
-      permute::setBlocks(perm) <- with(dat, meta(e)[[longit]])
-      ado <- vegan::adonis2(stats::as.formula(
+  # For metadata: take the first element in list_of_ps because meta data does not change
+  dat <- microbiome::meta(list_of_ps[[1]])
+  # Set up blocks and overwrite "permutations" if longitudinal testing
+  if (!is.null(longit)){
+      warning("Testing with strata or longitudinal design.\n")
+      permutations <- permute::how(nperm = permutations)
+      permute::setBlocks(permutations) <- with(dat, dat[[longit]])
+  } else {
+      warning("Testing without strata a.k.a. testing with cross-sectional design.\n")
+  }
+
+  for (e in list_of_ps) {
+    # Apply pseudo inside of loop because of different otu-tables per subsample
+    if (distance == "aitchison") {
+      phyloseq::otu_table(e) <- phyloseq::otu_table(e) + pseudocount
+    }
+
+    ado <- vegan::adonis2(
+      as.formula(
         paste(
           "vegan::vegdist(t(phyloseq::otu_table(e)),",
           quote(distance), # vegdist requires quoted method arg
@@ -302,33 +305,9 @@ multiple_permanova <- function(list_of_ps,
         )
       ),
       data = dat,
-      permutations = perm)
-
-      adonis_result_list <-
-        c(adonis_result_list, list(ado))
-    }
-  }
-  else {
-    print("Testing cross-sectional or without strata.")
-    for (e in list_of_ps) {
-      # Apply pseudo inside of loop
-      if (distance == "aitchison") {
-        phyloseq::otu_table(e) <- phyloseq::otu_table(e) + pseudocount
-      }
-      ado <- vegan::adonis2(stats::as.formula(
-        paste(
-          "vegan::vegdist(t(phyloseq::otu_table(e)),",
-          quote(distance), # vegdist requires quoted method arg
-          ") ~ ",
-          variable
-        )
-      ),
-      data = microbiome::meta(e),
       permutations = permutations)
 
-      adonis_result_list <-
-        c(adonis_result_list, list(ado))
-    }
+    adonis_result_list <- c(adonis_result_list, list(ado))
   }
   return(adonis_result_list)
 }
@@ -347,13 +326,18 @@ permanova_p_average <- function(results_adonis, averagef = "median") {
 
   # Find amount of rhs-variables to loop over in PERMANOVA results df
   var_amount <- sum(!is.na(results_adonis[[1]]$`Pr(>F)`))
+  # Initialise results dataframe
+  df_results <- data.frame()
   for (i in seq(var_amount)) {
-    print(paste(substitute(averagef),
-                "p-value of",
-                rownames(results_adonis[[1]])[i],
-                "=",
-                average.fun(sapply(results_adonis, function(df)
-                  (df[i, "Pr(>F)"])))
-    ))
+    df_results <-
+      rbind(df_results,
+        cbind(
+          rownames(results_adonis[[1]])[i],
+          average.fun(sapply(results_adonis, function(df) (df[i, "Pr(>F)"]))
+          )
+        )
+      )
   }
+  names(df_results) <- c("Variable", paste(averagef, "P-value"))
+  return(df_results)
 }
