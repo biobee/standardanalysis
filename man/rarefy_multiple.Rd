@@ -3,12 +3,16 @@
 \name{rarefy_multiple}
 \alias{rarefy_multiple}
 \alias{calculate_alpha_df}
-\title{Subsample-loop}
+\alias{calculate_average_alpha_ps}
+\alias{.test_kruskal}
+\title{Subsample-loop
+
+These functions are part of a method where multiple different subsamples are taken from a phyloseq object, to give an idea as to what the spread is subsampled sets.
+Because these functions are highly dependent on each other they are put together in one description. Different functions are numbered in the description.}
 \usage{
 rarefy_multiple(
   pseq,
   sample.size = NULL,
-  min_size_threshold = NULL,
   iter = 10,
   replace = FALSE,
   seeds = NULL,
@@ -16,13 +20,19 @@ rarefy_multiple(
 )
 
 calculate_alpha_df(pseq_list, measures = NULL)
+
+calculate_average_alpha_ps(
+  alpha_dataframe,
+  alpha_div = NULL,
+  averagef = "median"
+)
+
+.test_kruskal(formula, ...)
 }
 \arguments{
-\item{pseq}{Your phyloseq object (or OTU-table).}
+\item{pseq}{Your original pseq object. This is required only for the metadata.}
 
 \item{sample.size}{Your preferred sample size for rarefying.}
-
-\item{min_size_threshold}{Minimum count of otu for a sample to be included.}
 
 \item{iter}{The amount of times you would like to rarefy (amount of comparisons).}
 
@@ -32,24 +42,52 @@ calculate_alpha_df(pseq_list, measures = NULL)
 
 \item{...}{Additional arguments to  be passed on to phyloseq::rarefy_even_depth}
 
-\item{pseq_list}{The list of phyloseq objects received from rarefy_multiple function.}
+\item{pseq_list}{(2) The list of phyloseq objects received from rarefy_multiple function.}
 
 \item{measures}{The alpha-diversity measures that you want to compute.}
+
+\item{alpha_dataframe}{(4) The dataframe with alpha-diversities received from calculate_alpha_df function.}
+
+\item{alpha_div}{The alpha-diversity measures that you want to test.}
+
+\item{averagef}{The type of average function you want to use: median, mean, min (minimum) or max (maximum). Default is median (also recommended).}
+
+\item{variable}{The variable in the metadata with the groups that you want to test.}
+
+\item{method}{What test should be performed.}
+
+\item{paired}{In case of paired analysis, what is variable is the data paired on.}
 }
 \value{
-A list of phyloseq objects with length of amount of iterations.
+(1) A list of phyloseq objects with length of amount of iterations.
 
-A dataframe giving the alpha-diversities requested for each phyloseq object.
+(2) A dataframe giving the alpha-diversities requested for each phyloseq object.
+
+(3) A dataframe with the average alpha-diversities.
+
+(4) A vector with the p-values for each phyloseq object.
 }
 \description{
 Subsample-loop
+
+These functions are part of a method where multiple different subsamples are taken from a phyloseq object, to give an idea as to what the spread is subsampled sets.
+Because these functions are highly dependent on each other they are put together in one description. Different functions are numbered in the description.
 }
 \section{Functions}{
 \itemize{
+\item \code{rarefy_multiple()}: Making multiple subsampled phyloseq objects
+
 \item \code{calculate_alpha_df()}: Calculating of alpha-diversities
+
+\item \code{calculate_average_alpha_ps()}: Calculating of the averages of alpha-diversities
+
+\item \code{.test_kruskal()}: Testing of alpha-diversities between groups
 
 }}
 \examples{
 ps_list <- rarefy_multiple(ps, sample.size = 8000, iter = 100)
 alpha_df <- calculate_alpha_df(ps_list, measures = c("Shannon", "Simpson", "Chao1"))
+average_alphas <- calculate_average_alpha_ps(alpha_df, alpha_div = c("Shannon", "Simpson"), averagef = "min")
+alpha_p_values <- multiple_test_alpha(alpha_df, pseq, alpha_div = "Shannon", variable = "HealthStatus", method = "wilcoxon.test", paired = "SubjectID")
+median(alpha_p_values)
 }
