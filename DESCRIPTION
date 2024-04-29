@@ -17,7 +17,8 @@ Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Imports: 
-    ggfortify,
+    pheatmap,
+	ggfortify,
     microbiome (>= 1.20.0),
     phyloseq (>= 1.41.0)
 RoxygenNote: 7.3.1

@@ -172,16 +172,6 @@ calculate_average_alpha_ps <- function(alpha_dataframe,
 #' @examples alpha_p_values <- multiple_test_alpha(alpha_df, pseq, alpha_div = "Shannon", variable = "HealthStatus", method = "wilcoxon.test", paired = "SubjectID")
 #' @examples median(alpha_p_values)
 
-.test_kruskal <- function(formula, ...) {
-  return(stats::kruskal.test(formula))
-}
-
-.test_friedman <- function(formula, ...) {
-  args <- list(...)
-  lhs <- deparse(formula[[2]])
-  rhs <- deparse(formula[[3]])
-  return(stats::friedman.test(args[[lhs]], args$data[[args$variable]], args$data[[args$ID]]))
-}
 
 
 multiple_test_alpha <- function(alpha_dataframe,
@@ -294,6 +284,16 @@ multiple_test_alpha <- function(alpha_dataframe,
   return(list_of_test_p)
 }
 
+.test_kruskal <- function(formula, ...) {
+  return(stats::kruskal.test(formula))
+}
+
+.test_friedman <- function(formula, ...) {
+  args <- list(...)
+  lhs <- deparse(formula[[2]])
+  rhs <- deparse(formula[[3]])
+  return(stats::friedman.test(args[[lhs]], args$data[[args$variable]], args$data[[args$ID]]))
+}
 
 # PERMANOVA ====================================================================
 

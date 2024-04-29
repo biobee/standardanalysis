@@ -4,11 +4,10 @@
 \alias{rarefy_multiple}
 \alias{calculate_alpha_df}
 \alias{calculate_average_alpha_ps}
-\alias{.test_kruskal}
-\title{Subsample-loop
-
-These functions are part of a method where multiple different subsamples are taken from a phyloseq object, to give an idea as to what the spread is subsampled sets.
-Because these functions are highly dependent on each other they are put together in one description. Different functions are numbered in the description.}
+\alias{multiple_test_alpha}
+\alias{multiple_permanova}
+\alias{permanova_p_average}
+\title{Subsample-loop}
 \usage{
 rarefy_multiple(
   pseq,
@@ -27,7 +26,25 @@ calculate_average_alpha_ps(
   averagef = "median"
 )
 
-.test_kruskal(formula, ...)
+multiple_test_alpha(
+  alpha_dataframe,
+  pseq,
+  alpha_div,
+  variable,
+  method = "wilcox.test",
+  pair_by = NULL
+)
+
+multiple_permanova(
+  list_of_ps,
+  distance,
+  variable,
+  permutations,
+  pseudocount = 1,
+  longit = NULL
+)
+
+permanova_p_average(results_adonis, averagef = "median")
 }
 \arguments{
 \item{pseq}{Your original pseq object. This is required only for the metadata.}
@@ -50,11 +67,23 @@ calculate_average_alpha_ps(
 
 \item{alpha_div}{The alpha-diversity measures that you want to test.}
 
-\item{averagef}{The type of average function you want to use: median, mean, min (minimum) or max (maximum). Default is median (also recommended).}
+\item{averagef}{The average function to be used. This can be "median", "mean", "min", "max". Default (and recommended) is median.}
 
-\item{variable}{The variable in the metadata with the groups that you want to test.}
+\item{variable}{The variable in the metadata with the groups that you want to test.In the case you want to test more than one variable use this "variable1 + variable2". Interactions can also be tested, to do so instead of "+" use "*".}
 
 \item{method}{What test should be performed.}
+
+\item{list_of_ps}{(5) The list with subsampled phyloseq objects.}
+
+\item{distance}{The distance metric to be used in the PERMANOVA.}
+
+\item{permutations}{The amount of permutations that should be done by PERMANOVA, typically something like 999, 9999, 99999. (For reason behind this study PERMANOVA.)}
+
+\item{pseudocount}{Pseudo count to be used in the case of Aitchison as distance metric. Default = 1.}
+
+\item{longit}{In case of paired analysis, what is variable is the data paired on.}
+
+\item{results_adonis}{(6) The list with PERMANOVA results as received from the multiple_permanova function.}
 
 \item{paired}{In case of paired analysis, what is variable is the data paired on.}
 }
@@ -66,10 +95,12 @@ calculate_average_alpha_ps(
 (3) A dataframe with the average alpha-diversities.
 
 (4) A vector with the p-values for each phyloseq object.
+
+(5) A vector with the outcomes from the permanova for each phyloseq object.
+
+(6) A dataframe with the average outcomes per variable from the PERMANOVAs.
 }
 \description{
-Subsample-loop
-
 These functions are part of a method where multiple different subsamples are taken from a phyloseq object, to give an idea as to what the spread is subsampled sets.
 Because these functions are highly dependent on each other they are put together in one description. Different functions are numbered in the description.
 }
@@ -81,7 +112,11 @@ Because these functions are highly dependent on each other they are put together
 
 \item \code{calculate_average_alpha_ps()}: Calculating of the averages of alpha-diversities
 
-\item \code{.test_kruskal()}: Testing of alpha-diversities between groups
+\item \code{multiple_test_alpha()}: Testing of alpha-diversities between groups
+
+\item \code{multiple_permanova()}: Performing PERMANOVA
+
+\item \code{permanova_p_average()}: Performing averaging on p-values from PERMANOVA
 
 }}
 \examples{
@@ -90,4 +125,6 @@ alpha_df <- calculate_alpha_df(ps_list, measures = c("Shannon", "Simpson", "Chao
 average_alphas <- calculate_average_alpha_ps(alpha_df, alpha_div = c("Shannon", "Simpson"), averagef = "min")
 alpha_p_values <- multiple_test_alpha(alpha_df, pseq, alpha_div = "Shannon", variable = "HealthStatus", method = "wilcoxon.test", paired = "SubjectID")
 median(alpha_p_values)
+permanova_results <- multiple_permanova(ps_list, distance = "aitchison", variable = "Source + Time", permutations = 9999, longit = "SubjectID")
+averages_PERMANOVA <- permanova_p_average(results_adonis, averagef = "median")
 }
