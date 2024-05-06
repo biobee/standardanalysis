@@ -1,6 +1,6 @@
 # Preliminary analysis pipeline
 
-This script is a quick way to explore your data. It gives an overview of the raw data,
+This package is a quick way to explore your data. It gives an overview of the raw data,
 after which you can decide yourself on the sampling depth for subsampling (if you want to do that). It will provide alpha-diversity boxplots (Shannon, Simpson, etc.), relative abundance barplots, PCA, heatmaps, PERMANOVA and differential abundance analysis with Aldex2, ANCOM-BC2 and/or Maaslin2.
 Use the option to adjust settings in the functions to your preference. See the microbiome and phyloseq packages (Microbiome: https://microbiome.github.io/tutorials/, Phyloseq: https://joey711.github.io/phyloseq/) for the (other) options. Else, just use the default settings. Feel free to change the content if you want to learn more / play around, you can find the code under the "standardanalysis/R" folder in the directory where your package is installed.
 
