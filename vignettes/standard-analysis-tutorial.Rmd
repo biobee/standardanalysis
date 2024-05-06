@@ -15,21 +15,26 @@ knitr::opts_chunk$set(
 )
 ```
 
+# Installing packages
 ```{r setup}
+install.packages("devtools")
+library("devtools")
+
+devtools::install_github("plasde/standardanalysis", build_vignettes = TRUE)
 library(standardanalysis)
 ```
 
 
 # Microbiome data analysis in R
+To load your data change the following variables to your directory and file names. Its useful to declare your treatment variable already because most examples use the "treatment_variable" already so then you dont have to change anything. Optionally set your working directory to save results in same (parent) folder.
 
-Some text about adding data here.
 ```{r, message = FALSE}
 input_directory <- "C:/GitHub/ACTA-Preventive-Dentistry/standard-16s-analysis/data/"
 biom_file_name <- "test_biom_water.biom"
 mapping_file_name <- "test_mapping_file.txt"
 treatment_variable <- "Source"
 
-#setwd(input_directory)
+#setwd("C:/GitHub/ACTA-Preventive-Dentistry/standard-16s-analysis/")
 ```
 
 
@@ -40,7 +45,7 @@ treatment_variable <- "Source"
 ```{r}
 ps <- import_data(biom_file_name, mapping_file_name)
 
-# Function for clean-up taxonomy
+# Function for cleaning up taxonomy
 ps <- clean_taxonomy(ps)
 ```
 
@@ -178,9 +183,11 @@ make_heatmap(ps,
 ## PERMANOVA
 ### Unpaired / independent
 The following is a PERMANOVA for unpaired or independent samples. You can subset as follows (for example): 
-> ps_subset_sick65 <- subset_samples(ps, HealthStatus == "Sick" & age > 65)
+```{r}
+ps_subset_sick65 <- subset_samples(ps, HealthStatus == "Sick" & age > 65)
+``` 
 
-Remember that subsetting decreases your sample size. In case you want to transform your data (i.e. CLR), now is a good time for that. Here I use a pseudocount of 1.  
+Remember that subsetting decreases your per-group sample size. In case you want to transform your data (i.e. CLR), now is a good time for that. Here I use a pseudocount of 1.  
 ```{r}
 ps_shift <- microbiome::transform(ps, transform = "shift", shift = 1)
 ps_clr <- microbiome::transform(ps_shift, transform = "clr")
