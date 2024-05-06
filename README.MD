@@ -11,7 +11,7 @@ Use the option to adjust settings in the functions to your preference. See the m
 
 
 Dependencies (R-packages):
-- These will all be handled inside of the Rmd file.
+- These will all be handled inside of the package.
 
 To install (with vignettes)
 ``` r
