@@ -31,6 +31,6 @@ You can either use the functions separately (functions can be seen in the vignet
 ```{r}
 vignette('standard-analysis-tutorial', package = 'standardanalysis')
 ```
-Alternatively, open in web browser: https://github.com/plasde/standardanalysis/doc/standard-analysis-tutorial.html
+Alternatively, open in web browser: https://github.com/plasde/standardanalysis/tree/main/doc/standard-analysis-tutorial.Rmd
 
 If you have any problems, questions or things you'd like to see added just let me know by email d.w.k.van.der.plas@acta.nl (fastest) or the issue-board on github.
