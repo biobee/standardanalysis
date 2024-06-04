@@ -2,7 +2,7 @@
 
 This package is a quick way to explore your data. It gives an overview of the raw data,
 after which you can decide yourself on the sampling depth for subsampling (if you want to do that). It will provide alpha-diversity boxplots (Shannon, Simpson, etc.), relative abundance barplots, PCA, heatmaps, PERMANOVA and differential abundance analysis with Aldex2, ANCOM-BC2 and/or Maaslin2.
-Use the option to adjust settings in the functions to your preference. See the microbiome and phyloseq packages (Microbiome: https://microbiome.github.io/tutorials/, Phyloseq: https://joey711.github.io/phyloseq/) for the (other) options. Else, just use the default settings. Feel free to change the content if you want to learn more / play around, you can find the code under the "standardanalysis/R" folder in the directory where your package is installed.
+Use the option to adjust settings in the functions to your preference. See the microbiome and phyloseq packages ([Microbiome](https://microbiome.github.io/tutorials/), [Phyloseq](https://joey711.github.io/phyloseq)) for the (other) options. Else, just use the default settings. Feel free to change the content if you want to learn more / play around, you can find the code under the "standardanalysis/R" folder in the directory where your package is installed.
 
 ## Software pre-requisites:
 - R - [Windows download](https://cran.r-project.org/bin/windows/base/)
@@ -38,7 +38,7 @@ The structure of the vignette is how you would run your own analysis. Open the v
 ```{r}
 vignette('standard-analysis-tutorial', package = 'standardanalysis')
 ```
-Alternatively, open in web browser: https://github.com/plasde/standardanalysis/tree/main/doc/standard-analysis-tutorial.Rmd
+Alternatively, open in [web browser](https://github.com/plasde/standardanalysis/tree/main/doc/standard-analysis-tutorial.Rmd).
 
 A couple things to keep in mind:
 - Consider what kind of normalisation you want for you data.
