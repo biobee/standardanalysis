@@ -42,7 +42,8 @@ Alternatively, open in [web browser](https://github.com/plasde/standardanalysis/
 
 A couple things to keep in mind:
 - Consider what kind of normalisation you want for you data.
-  - if your input data is already subsampled, there is no need for more subsampling.
+  - Generally, you use one kind of normalisation.
+  - if your input data is already subsampled, there is no need to subsample again.
   - if you want to do multiple subsampling, start with raw data and do not perform CLR-transformation.
   - if you want to do CLR transformation, do not subsample but do remove samples having lower than 1000 reads.
 - The points mentioned above also influence what distance metrics you use (Bray-Curtis, Euclidean, Aitchison).
