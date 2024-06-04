@@ -8,7 +8,7 @@ Description: Perform standard microbiome analysis
     With this package you can more easily analyse microbiome data.
 	This package is built on phyloseq and/or microbiome functions.
 	It consists of lots of microbiome stuff.
-License: AGPL (>= 3)
+License: GPL (>= 3)
 Encoding: UTF-8
 LazyData: true
 Suggests: 
