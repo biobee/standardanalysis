@@ -17,11 +17,9 @@ knitr::opts_chunk$set(
 ```
 
 # Installing packages
-```{r setup}
-install.packages("devtools")
-library("devtools")
+```{r setup, include = FALSE}
+options(repos = c(CRAN = "https://cloud.r-project.org"))
 
-devtools::install_github("plasde/standardanalysis", build_vignettes = TRUE)
 library(standardanalysis)
 ```
 
