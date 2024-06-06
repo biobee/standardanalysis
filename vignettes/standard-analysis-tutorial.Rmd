@@ -183,7 +183,7 @@ make_heatmap(ps,
 ### Unpaired / independent
 The following is a PERMANOVA for unpaired or independent samples. You can subset as follows (for example): 
 ```{r}
-ps_subset_sick65 <- subset_samples(ps, HealthStatus == "Sick" & age > 65)
+ps_subset_sick65 <- phyloseq::subset_samples(ps, HealthStatus == "Sick" & age > 65)
 ``` 
 
 Remember that subsetting decreases your per-group sample size. In case you want to transform your data (i.e. CLR), now is a good time for that. Here I use a pseudocount of 1.  
