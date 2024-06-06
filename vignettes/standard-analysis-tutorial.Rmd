@@ -1,8 +1,8 @@
 ---
 title: "standard-analysis-tutorial"
 output:
-  rmarkdown::html_vignette
-  rmarkdown::pdf_document
+  rmarkdown::html_vignette: default
+  rmarkdown::pdf_document: default
 vignette: >
   %\VignetteIndexEntry{standard-analysis-tutorial}
   %\VignetteEngine{knitr::rmarkdown}
