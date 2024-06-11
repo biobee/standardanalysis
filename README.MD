@@ -13,17 +13,27 @@ Dependencies (R-packages):
 - These will all be handled inside of the package.
 
 ## To install (with vignettes)
-First make sure you have the package devtools installed and loaded.
+First make sure you have the package devtools installed and loaded. You will also need the BiocManager package to install both phyloseq and microbiome packages, as they are not available as a standard CRAN package.
+
 ``` r
 install.packages('devtools')
 library('devtools')
+
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+    install.packages("BiocManager")
+}
+
+# Install Bioconductor dependencies
+BiocManager::install(c("phyloseq", "microbiome"))
 ```
 
 Now you can install the package from github. Choose build_vignettes = TRUE to be able to acces the vignettes.
+
 ``` r
 devtools::install_github("plasde/standardanalysis", build_vignettes = TRUE)
 library("standardanalysis")
 ```
+
 In case, you get an error mentioning Rcmd.exe, make sure you have the [R directory added to your path.](https://www.architectryan.com/2018/03/17/add-to-the-path-on-windows-10/)
 In my case, I need to add: "C:\Program Files\R\R-4.3.3\bin\x64"
 
