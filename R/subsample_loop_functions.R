@@ -164,12 +164,12 @@ calculate_average_alpha_ps <- function(alpha_dataframe,
 #' @param alpha_div The alpha-diversity measures that you want to test.
 #' @param variable The variable in the metadata with the groups that you want to test.
 #' @param method What test should be performed.
-#' @param paired In case of paired analysis, what is variable is the data paired on.
+#' @param pair_by In case of paired analysis, what is variable is the data paired on.
 #'
 #' @return (4) A vector with the p-values for each phyloseq object.
 #' @export
 #'
-#' @examples alpha_p_values <- multiple_test_alpha(alpha_df, pseq, alpha_div = "Shannon", variable = "HealthStatus", method = "wilcoxon.test", paired = "SubjectID")
+#' @examples alpha_p_values <- multiple_test_alpha(alpha_df, pseq, alpha_div = "Shannon", variable = "HealthStatus", method = "wilcoxon.test", pair_by = "SubjectID")
 #' @examples median(alpha_p_values)
 
 
