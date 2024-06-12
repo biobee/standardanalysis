@@ -73,6 +73,8 @@ permanova_p_average(results_adonis, averagef = "median")
 
 \item{method}{What test should be performed.}
 
+\item{pair_by}{In case of paired analysis, what is variable is the data paired on.}
+
 \item{list_of_ps}{(5) The list with subsampled phyloseq objects.}
 
 \item{distance}{The distance metric to be used in the PERMANOVA.}
@@ -84,8 +86,6 @@ permanova_p_average(results_adonis, averagef = "median")
 \item{longit}{In case of paired analysis, what is variable is the data paired on.}
 
 \item{results_adonis}{(6) The list with PERMANOVA results as received from the multiple_permanova function.}
-
-\item{paired}{In case of paired analysis, what is variable is the data paired on.}
 }
 \value{
 (1) A list of phyloseq objects with length of amount of iterations.
@@ -123,7 +123,7 @@ Because these functions are highly dependent on each other they are put together
 ps_list <- rarefy_multiple(ps, sample.size = 8000, iter = 100)
 alpha_df <- calculate_alpha_df(ps_list, measures = c("Shannon", "Simpson", "Chao1"))
 average_alphas <- calculate_average_alpha_ps(alpha_df, alpha_div = c("Shannon", "Simpson"), averagef = "min")
-alpha_p_values <- multiple_test_alpha(alpha_df, pseq, alpha_div = "Shannon", variable = "HealthStatus", method = "wilcoxon.test", paired = "SubjectID")
+alpha_p_values <- multiple_test_alpha(alpha_df, pseq, alpha_div = "Shannon", variable = "HealthStatus", method = "wilcoxon.test", pair_by = "SubjectID")
 median(alpha_p_values)
 permanova_results <- multiple_permanova(ps_list, distance = "aitchison", variable = "Source + Time", permutations = 9999, longit = "SubjectID")
 averages_PERMANOVA <- permanova_p_average(results_adonis, averagef = "median")
