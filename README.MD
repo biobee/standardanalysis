@@ -30,7 +30,7 @@ BiocManager::install(c("phyloseq", "microbiome"))
 Now you can install the package from github. Choose build_vignettes = TRUE to be able to acces the vignettes.
 
 ``` r
-devtools::install_github("plasde/standardanalysis", build_vignettes = TRUE)
+devtools::install_github("biobee/standardanalysis", build_vignettes = TRUE)
 library("standardanalysis")
 ```
 

@@ -19,10 +19,11 @@ knitr::opts_chunk$set(
 # Installing packages
 ```{r setup, include = FALSE}
 options(repos = c(CRAN = "https://cloud.r-project.org"))
-
-library(standardanalysis)
 ```
 
+```{r}
+library(standardanalysis)
+```
 
 # Microbiome data analysis in R
 To load your data change the following variables to your directory and file names. Its useful to declare your treatment variable already because most examples use the "treatment_variable" already so then you dont have to change anything. Optionally set your working directory to save results in same (parent) folder.
