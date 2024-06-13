@@ -72,7 +72,7 @@ microbiome::meta(ps)$X.SampleID
 
 ## Rarefaction of samples
 ```{r} 
-ps_rare <- rarefy(ps, depth = 0, mc = 1000)
+ps_rare <- rarefy_single(ps, depth = 0, mc = 1000)
 ```
 
 ## Calculating the diversity and plotting samples.

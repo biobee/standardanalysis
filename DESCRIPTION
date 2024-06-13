@@ -1,7 +1,7 @@
 Package: standardanalysis
 Type: Package
 Title: Perform a standard microbiome analysis
-Version: 0.1.0
+Version: 1.0.0
 Author: Derek van der Plas
 Maintainer: Derek van der Plas <d.w.k.van.der.plas@acta.nl>
 Description: Perform standard microbiome analysis
