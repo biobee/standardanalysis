@@ -1,0 +1,15 @@
+name: installation-of-dependencies
+on: [push]
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@master
+
+      - name: Setup dependencies
+        run: |
+          R -e 'install.packages("renv")'
+          R -e 'renv::restore()'
