@@ -8,7 +8,6 @@
 #'
 #' @return pseq A phyloseq object.
 #' @export
-#' @importFrom utils globalVariables
 #'
 #' @examples import_data(my_biom_file, my_mapping_file)
 
@@ -26,8 +25,8 @@ import_data <- function(name_biom_file, name_mapping_file) {
 		)
 
 	} else {
-		biom <- microbiome::read_phyloseq(paste0(config$input_directory, name_biom_file), type = "biom")
-		mapping <- phyloseq::import_qiime_sample_data(paste0(config$input_directory, name_mapping_file))
+		biom <- microbiome::read_phyloseq(name_biom_file, type = "biom")
+		mapping <- phyloseq::import_qiime_sample_data(name_mapping_file)
 	}
 
 	pseq <- phyloseq::merge_phyloseq(biom, mapping)
