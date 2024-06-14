@@ -42,5 +42,3 @@ import_data <- function(name_biom_file, name_mapping_file) {
 
 	return(pseq)
 }
-
-utils::globalVariables("config")
