@@ -49,7 +49,7 @@ The structure of the vignette is how you would run your own analysis. Open the v
 ```{r}
 vignette('standard-analysis-tutorial', package = 'standardanalysis')
 ```
-Alternatively, open in [web browser](https://github.com/plasde/standardanalysis/tree/main/doc/standard-analysis-tutorial.Rmd).
+Alternatively, open in [web browser](https://html-preview.github.io/?url=https://github.com/biobee/standardanalysis/blob/main/doc/standard-analysis-tutorial.html).
 
 A couple things to keep in mind:
 - Consider what kind of normalisation you want for you data.
