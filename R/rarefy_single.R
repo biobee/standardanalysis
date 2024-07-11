@@ -1,4 +1,4 @@
-#' Rarefy otu counts
+#' Rarefy OTU counts
 #'
 #' @param pseq Your phyloseq object.
 #' @param depth The depth you want to rarefy to.
