@@ -2,7 +2,7 @@
 % Please edit documentation in R/rarefy_single.R
 \name{rarefy_single}
 \alias{rarefy_single}
-\title{Rarefy otu counts}
+\title{Rarefy OTU counts}
 \usage{
 rarefy_single(pseq, depth = 0, mc = 1000)
 }
@@ -17,7 +17,7 @@ rarefy_single(pseq, depth = 0, mc = 1000)
 A phyloseq object where samples rarefied or samples below minimum count are thrown out.
 }
 \description{
-Rarefy otu counts
+Rarefy OTU counts
 }
 \examples{
 rarefy_single(ps, depth = 4000, mc = 1000)
