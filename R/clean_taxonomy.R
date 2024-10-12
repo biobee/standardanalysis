@@ -21,8 +21,9 @@ clean_taxonomy <- function(pseq) {
                              if(grepl("uncultured", y[i], ignore.case = T)) { # if any of the values in row are uncultured:
                                y[i:7] <- replicate((8-i), paste("Uncultured", y[(i-1)], sep = " "))
                              }
-                             if(base::is.na(y[i]) || y[i] == "" || y[i] == "metagenome") { # if any of the values in row are NA:
-                               y[i:7] <- replicate((8-i), paste("Unclassified", y[(i-1)], sep = " "))
+                             if(base::is.na(y[i]) || y[i] == "" ||
+                                grepl("metagenome|unclassified", y[i], ignore.case = T)) { # if any of the values in row are NA:
+                               y[i:7] <- replicate((8-i), paste("Uncl", y[(i-1)], sep = " "))
                              }
                              if(grepl("unidentified", y[i], ignore.case = T)) { # if any of the values in row are unidentified:
                                y[i:7] <- replicate((8-i), paste("Unidentified", y[(i-1)], sep = " "))

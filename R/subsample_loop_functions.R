@@ -61,7 +61,7 @@ rarefy_multiple <- function(pseq,
                           verbose = FALSE,
                           ... # pass additional arguments to  phyloseq::rarefy_even_depth
                         )
-                      })
+                      }, ...)
 
   # Add rarefaction parameters as attributes to the resulting list
   base::attr(res_apply, which = "rarefaction_depth") <- sample.size
