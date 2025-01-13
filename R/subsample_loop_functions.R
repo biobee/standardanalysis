@@ -15,9 +15,7 @@
 #' @export
 #'
 #' @examples ps_list <- rarefy_multiple(ps, sample.size = 8000, iter = 100)
-
 # based on https://github.com/vmikk/metagMisc/blob/master/R/phyloseq_mult_raref.R
-
 rarefy_multiple <- function(pseq,
                             sample.size = NULL,
                             iter = 10,
@@ -51,17 +49,19 @@ rarefy_multiple <- function(pseq,
     seeds <- 1:iter
   }
 
-  res_apply <- lapply(seeds,
-                      function(z, ...) {
-                        phyloseq::rarefy_even_depth(
-                          pseq,
-                          rngseed = z,
-                          sample.size = sample.size,
-                          replace = replace,
-                          verbose = FALSE,
-                          ... # pass additional arguments to  phyloseq::rarefy_even_depth
-                        )
-                      }, ...)
+  res_apply <- lapply(
+    seeds,
+    function(z, ...) {
+      phyloseq::rarefy_even_depth(
+        pseq,
+        rngseed = z,
+        sample.size = sample.size,
+        replace = replace,
+        verbose = FALSE,
+        ... # pass additional arguments to  phyloseq::rarefy_even_depth
+      )
+    }, ...
+  )
 
   # Add rarefaction parameters as attributes to the resulting list
   base::attr(res_apply, which = "rarefaction_depth") <- sample.size
@@ -81,7 +81,6 @@ rarefy_multiple <- function(pseq,
 #' @export
 #'
 #' @examples alpha_df <- calculate_alpha_df(ps_list, measures = c("Shannon", "Simpson", "Chao1"))
-
 calculate_alpha_df <- function(pseq_list, measures = NULL) {
   alpha_df <- data.frame()
   for (i in seq_along(pseq_list)) {
@@ -107,30 +106,31 @@ calculate_alpha_df <- function(pseq_list, measures = NULL) {
 #' @export
 #'
 #' @examples average_alphas <- calculate_average_alpha_ps(alpha_df, alpha_div = c("Shannon", "Simpson"), averagef = "min")
-
 calculate_average_alpha_ps <- function(alpha_dataframe,
                                        alpha_div = NULL,
                                        averagef = "median") {
   # Catch wrong method argument
   allowed.methods <- c("median", "mean", "min", "max")
-  if (!averagef %in% allowed.methods)
+  if (!averagef %in% allowed.methods) {
     stop(
       "Non-supported average function specified. Allowed methods are one of: ",
       paste(allowed.methods, collapse = ", ")
     )
+  }
   average.fun <- match.fun(averagef)
 
   # As we rely on named alpha_div, check if this exists in the dataframe
   alpha_divs <- names(alpha_dataframe)
   alpha_divs <- alpha_divs[alpha_divs != "X.SampleID"] # continue only with diversity-measures
-  if (!all(alpha_div %in% names(alpha_dataframe)))
+  if (!all(alpha_div %in% names(alpha_dataframe))) {
     stop(
       "You call a measure not in your dataframe. You can select: ",
       paste(alpha_divs, collapse = ", "),
       "."
     )
-  else if (is.null(alpha_div))
+  } else if (is.null(alpha_div)) {
     alpha_div <- alpha_divs
+  }
 
   # alpha_div as vector of measures to loop over
   median_list <- list()
@@ -138,8 +138,10 @@ calculate_average_alpha_ps <- function(alpha_dataframe,
     median_alpha <- c()
     # Grab all the alpha div values for measure e for a single sampleID in the dataframe and apply avg fun
     for (sample in unique(alpha_dataframe$X.SampleID)) {
-      median_alpha <- c(median_alpha,
-                        average.fun(alpha_dataframe[which(alpha_dataframe$X.SampleID == sample), e]))
+      median_alpha <- c(
+        median_alpha,
+        average.fun(alpha_dataframe[which(alpha_dataframe$X.SampleID == sample), e])
+      )
     }
     median_list[[e]] <- median_alpha
   }
@@ -171,23 +173,21 @@ calculate_average_alpha_ps <- function(alpha_dataframe,
 #'
 #' @examples alpha_p_values <- multiple_test_alpha(alpha_df, pseq, alpha_div = "Shannon", variable = "HealthStatus", method = "wilcoxon.test", pair_by = "SubjectID")
 #' @examples median(alpha_p_values)
-
-
-
 multiple_test_alpha <- function(alpha_dataframe,
                                 pseq,
-                                #one pseq object with same metadata as in list
+                                # one pseq object with same metadata as in list
                                 alpha_div,
                                 variable,
                                 method = "wilcox.test",
                                 pair_by = NULL) {
   # Catch wrong method call
   allowed.methods <- c("t.test", "wilcox.test", "kruskal.test", "friedman.test")
-  if (!(method %in% allowed.methods))
+  if (!(method %in% allowed.methods)) {
     stop(
       "Non-supported method specified. Allowed methods are one of: ",
       paste(allowed.methods, collapse = ", ")
     )
+  }
   test.func <- match.fun(method)
 
   meta_df <- microbiome::meta(pseq)
@@ -203,23 +203,19 @@ multiple_test_alpha <- function(alpha_dataframe,
   }
   # Can't use t-test / wilcox with more than 2 groups
   if (length(unique(meta_df[[variable]])) > 2 &&
-      method %in% c("t.test", "wilcox.test")) {
+    method %in% c("t.test", "wilcox.test")) {
     stop("T.test or wilcoxon can only handle 2 groups.
          Use kruskal.test for non-paired and friedman.test for paired data.\n")
   }
-
   if (method == "kruskal.test") {
     if (!is.null(pair_by)) {
       stop("Kruskal-Wallis cannot test in a paired manner.\n")
     }
     test.func <- .test_kruskal
-  }
-
-  if (method == "friedman.test") {
+  } else if (method == "friedman.test") {
     test.func <- .test_friedman
   }
 
-  # Order data for a paired test
   paired <- FALSE
   if (!is.null(pair_by)) {
     ID <- pair_by
@@ -228,8 +224,9 @@ multiple_test_alpha <- function(alpha_dataframe,
     }
     # Make sure all data are paired and ordered on ID variable
     SID_count <- table(microbiome::meta(pseq)[[ID]])
-    if (max(SID_count) < 2)
+    if (max(SID_count) < 2) {
       stop("Your data are not paired on ", ID)
+    }
     SID_all <- names(SID_count[SID_count == max(SID_count)])
     ss_meta <- subset(microbiome::meta(pseq), base::get(ID) %in% SID_all)
 
@@ -239,7 +236,7 @@ multiple_test_alpha <- function(alpha_dataframe,
     # Sort the dataframe on ID and grouping variable
     # Only complete pairs are left hereafter
     sort_by <- c(pair_by, variable)
-    meta_df <- ss_meta[do.call(order, ss_meta[sort_by]),]
+    meta_df <- ss_meta[do.call(order, ss_meta[sort_by]), ]
     # Used prune_samples as subset_samples gave unexplained error with passing on sample_names argument
     pseq <-
       phyloseq::prune_samples(phyloseq::sample_names(pseq) %in% rownames(meta_df), pseq)
@@ -260,6 +257,10 @@ multiple_test_alpha <- function(alpha_dataframe,
     )
     alpha_dataframe <- subset(alpha_dataframe, X.SampleID %in% phyloseq::sample_names(pseq))
   }
+  # Set the splitting variable as factor
+  if (!is.factor(meta_df[[variable]])) {
+    meta_df[[variable]] <- as.factor(meta_df[[variable]])
+  }
 
   list_of_test_p <- c()
   # For all samples in complete ps-list, with steps of X samples in one ps
@@ -269,17 +270,32 @@ multiple_test_alpha <- function(alpha_dataframe,
 
     # Add p value to list of p-values - Treatment variable part of test can stay the same every iteration
     # Always use meta[[variable]] here as meta has been sorted on the pairing
-    list_of_test_p <- c(
-      list_of_test_p,
-      test.func(
-        values_single_ps ~ meta_df[[variable]],
-        paired = paired,
-        data = meta_df,
-        variable = variable,
-        values_single_ps = values_single_ps,
-        ID = ID
-      )$p.value
-    )
+    if (paired == T && method %in% c("t.test", "wilcox.test")) {
+      list_of_test_p <- c(
+        list_of_test_p,
+        test.func(
+          Pair(
+            values_single_ps[meta_df[[variable]] == 1L],
+            values_single_ps[meta_df[[variable]] == 2L]
+          ) ~ 1,
+          data = meta_df,
+          variable = variable,
+          values_single_ps = values_single_ps,
+          ID = ID
+        )$p.value
+      )
+    } else {
+      list_of_test_p <- c(
+        list_of_test_p,
+        test.func(
+          values_single_ps ~ meta_df[[variable]],
+          data = meta_df,
+          variable = variable,
+          values_single_ps = values_single_ps,
+          ID = ID
+        )$p.value
+      )
+    }
   }
   return(list_of_test_p)
 }
@@ -310,7 +326,6 @@ multiple_test_alpha <- function(alpha_dataframe,
 #' @export
 #'
 #' @examples permanova_results <- multiple_permanova(ps_list, distance = "aitchison", variable = "Source + Time", permutations = 9999, longit = "SubjectID")
-
 multiple_permanova <- function(list_of_ps,
                                distance,
                                variable,
@@ -326,12 +341,12 @@ multiple_permanova <- function(list_of_ps,
   # For metadata: take the first element in list_of_ps because meta data does not change
   dat <- microbiome::meta(list_of_ps[[1]])
   # Set up blocks and overwrite "permutations" if longitudinal testing
-  if (!is.null(longit)){
-      warning("Testing with strata or longitudinal design.\n")
-      permutations <- permute::how(nperm = permutations)
-      permute::setBlocks(permutations) <- with(dat, dat[[longit]])
+  if (!is.null(longit)) {
+    warning("Testing with strata or longitudinal design.\n")
+    permutations <- permute::how(nperm = permutations)
+    permute::setBlocks(permutations) <- with(dat, dat[[longit]])
   } else {
-      warning("Testing without strata a.k.a. testing with cross-sectional design.\n")
+    warning("Testing without strata a.k.a. testing with cross-sectional design.\n")
   }
 
   for (e in list_of_ps) {
@@ -350,7 +365,8 @@ multiple_permanova <- function(list_of_ps,
         )
       ),
       data = dat,
-      permutations = permutations)
+      permutations = permutations
+    )
 
     adonis_result_list <- c(adonis_result_list, list(ado))
   }
@@ -369,15 +385,14 @@ multiple_permanova <- function(list_of_ps,
 #' @export
 #'
 #' @examples averages_PERMANOVA <- permanova_p_average(results_adonis, averagef = "median")
-
 permanova_p_average <- function(results_adonis, averagef = "median") {
-
   allowed.methods <- c("median", "mean", "min", "max")
-  if (!averagef %in% allowed.methods)
+  if (!averagef %in% allowed.methods) {
     stop(
       "Non-supported average function specified. Allowed methods are one of: ",
       paste(allowed.methods, collapse = ", ")
     )
+  }
   average.fun <- match.fun(averagef)
 
   # Find amount of rhs-variables to loop over in PERMANOVA results df
@@ -386,11 +401,11 @@ permanova_p_average <- function(results_adonis, averagef = "median") {
   df_results <- data.frame()
   for (i in seq(var_amount)) {
     df_results <-
-      rbind(df_results,
+      rbind(
+        df_results,
         cbind(
           rownames(results_adonis[[1]])[i],
-          average.fun(sapply(results_adonis, function(df) (df[i, "Pr(>F)"]))
-          )
+          average.fun(sapply(results_adonis, function(df) (df[i, "Pr(>F)"])))
         )
       )
   }
