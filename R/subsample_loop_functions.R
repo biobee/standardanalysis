@@ -83,13 +83,13 @@ rarefy_multiple <- function(pseq,
 #' @examples alpha_df <- calculate_alpha_df(ps_list, measures = c("Shannon", "Simpson", "Chao1"))
 calculate_alpha_df <- function(pseq_list, measures = NULL) {
   alpha_df <- data.frame()
-  for (i in seq_along(pseq_list)) {
-    # Estimate_richness uses diversity function from where..?
-    new_alpha_df <-
-      phyloseq::estimate_richness(pseq_list[[i]], measures = measures)
-    new_alpha_df$X.SampleID <- row.names(new_alpha_df)
-    alpha_df <- rbind(alpha_df, new_alpha_df, make.row.names = F)
-  }
+  alphas <- furrr::future_map(pseq_list, ~ {
+    df <- phyloseq::estimate_richness(.x, measures = measures)
+  })
+  alpha_df <- plyr::ldply(alphas, function(x) {
+    ID <- rownames(x)
+    cbind(x, ID)
+  })
   return(alpha_df)
 }
 
@@ -121,7 +121,7 @@ calculate_average_alpha_ps <- function(alpha_dataframe,
 
   # As we rely on named alpha_div, check if this exists in the dataframe
   alpha_divs <- names(alpha_dataframe)
-  alpha_divs <- alpha_divs[alpha_divs != "X.SampleID"] # continue only with diversity-measures
+  alpha_divs <- alpha_divs[alpha_divs != "ID"] # continue only with diversity-measures
   if (!all(alpha_div %in% names(alpha_dataframe))) {
     stop(
       "You call a measure not in your dataframe. You can select: ",
@@ -133,28 +133,15 @@ calculate_average_alpha_ps <- function(alpha_dataframe,
   }
 
   # alpha_div as vector of measures to loop over
-  median_list <- list()
-  for (e in alpha_div) {
-    median_alpha <- c()
-    # Grab all the alpha div values for measure e for a single sampleID in the dataframe and apply avg fun
-    for (sample in unique(alpha_dataframe$X.SampleID)) {
-      median_alpha <- c(
-        median_alpha,
-        average.fun(alpha_dataframe[which(alpha_dataframe$X.SampleID == sample), e])
-      )
-    }
-    median_list[[e]] <- median_alpha
-  }
-
-  median_df <- as.data.frame(median_list)
-  colnames(median_df) <-
-    paste(averagef, names(median_df), sep = "_")
-  rownames(median_df) <- unique(alpha_dataframe$X.SampleID)
-
-  return(median_df)
+  # avg_list <- list()
+  avg_df <- dplyr::group_by(alpha_dataframe, ID) |>
+    dplyr::summarise(dplyr::across(dplyr::all_of(alpha_div), average.fun))
+  names(avg_df)[-1] <- paste(averagef, alpha_div, sep = "_")
+  avg_df <- as.data.frame(avg_df)
+  return(avg_df)
 }
 
-# utils::globalVariables("X.SampleID")
+# utils::globalVariables("ID")
 
 
 # Alpha div test ===============================================================
@@ -223,12 +210,12 @@ multiple_test_alpha <- function(alpha_dataframe,
       stop("Provide only 1 pair_by!\n")
     }
     # Make sure all data are paired and ordered on ID variable
-    SID_count <- table(microbiome::meta(pseq)[[ID]])
+    SID_count <- table(meta_df[[ID]])
     if (max(SID_count) < 2) {
       stop("Your data are not paired on ", ID)
     }
     SID_all <- names(SID_count[SID_count == max(SID_count)])
-    ss_meta <- subset(microbiome::meta(pseq), base::get(ID) %in% SID_all)
+    ss_meta <- subset(meta_df, base::get(ID) %in% SID_all)
 
     # Refactor Subject/ pairby from 99 to 81
     ss_meta[[ID]] <- factor(ss_meta[[ID]])
@@ -247,15 +234,15 @@ multiple_test_alpha <- function(alpha_dataframe,
   # Filter data from alpha_dataframe based on pseq because pairing might have removed unpaired samples;
   # We do not rely on nrow() but on samples
   # Note: this filtering HAS to be done after pairing samples in case of a paired test
-  if (!all(phyloseq::sample_names(pseq) %in% unique(alpha_dataframe$X.SampleID))) {
+  if (!all(phyloseq::sample_names(pseq) %in% unique(alpha_dataframe$ID))) {
     stop("Sample names in your alpha div dataframe and pseq object do not match.\n")
-  } else if (length(unique(alpha_dataframe$X.SampleID)) != phyloseq::nsamples(pseq)) {
+  } else if (length(unique(alpha_dataframe$ID)) != phyloseq::nsamples(pseq)) {
     warning(
       "Your alpha div dataframe and pseq object do NOT contain the same number of samples.\n",
       "Since all samples from pseq are in alpha_frame, we will select the pseq samples from alpha_dataframe.\n",
       "If you are doing paired-testing this is expected.\n"
     )
-    alpha_dataframe <- subset(alpha_dataframe, X.SampleID %in% phyloseq::sample_names(pseq))
+    alpha_dataframe <- subset(alpha_dataframe, ID %in% phyloseq::sample_names(pseq))
   }
   # Set the splitting variable as factor
   if (!is.factor(meta_df[[variable]])) {
@@ -264,19 +251,19 @@ multiple_test_alpha <- function(alpha_dataframe,
 
   list_of_test_p <- c()
   # For all samples in complete ps-list, with steps of X samples in one ps
-  for (e in seq(1, nrow(alpha_dataframe), by = nrow(meta_df))) {
+  furrr::future_map(seq(1, nrow(alpha_dataframe), by = nrow(meta_df)), ~ {
     # Grab one ps set, and do test on it
-    values_single_ps <- alpha_dataframe[c(e:(e + nrow(meta_df) - 1)), alpha_div]
+    values_single_ps <- alpha_dataframe[c(.x:(.x + nrow(meta_df) - 1)), alpha_div]
 
     # Add p value to list of p-values - Treatment variable part of test can stay the same every iteration
     # Always use meta[[variable]] here as meta has been sorted on the pairing
-    if (paired == T && method %in% c("t.test", "wilcox.test")) {
+    if (paired == T & method %in% c("t.test", "wilcox.test")) {
       list_of_test_p <- c(
         list_of_test_p,
         test.func(
           Pair(
-            values_single_ps[meta_df[[variable]] == 1L],
-            values_single_ps[meta_df[[variable]] == 2L]
+            values_single_ps[meta_df[[variable]] == meta_df[[variable]][1]],
+            values_single_ps[meta_df[[variable]] == meta_df[[variable]][2]]
           ) ~ 1,
           data = meta_df,
           variable = variable,
@@ -296,7 +283,7 @@ multiple_test_alpha <- function(alpha_dataframe,
         )$p.value
       )
     }
-  }
+  })
   return(list_of_test_p)
 }
 
@@ -349,16 +336,16 @@ multiple_permanova <- function(list_of_ps,
     warning("Testing without strata a.k.a. testing with cross-sectional design.\n")
   }
 
-  for (e in list_of_ps) {
+  adonis_result_list <- furrr::future_map(list_of_ps, ~ {
     # Apply pseudo inside of loop because of different otu-tables per subsample
     if (distance == "aitchison") {
-      phyloseq::otu_table(e) <- phyloseq::otu_table(e) + pseudocount
+      phyloseq::otu_table(.x) <- phyloseq::otu_table(.x) + pseudocount
     }
 
     ado <- vegan::adonis2(
       as.formula(
         paste(
-          "vegan::vegdist(t(phyloseq::otu_table(e)),",
+          "vegan::vegdist(t(phyloseq::otu_table(.x)),",
           quote(distance), # vegdist requires quoted method arg
           ") ~ ",
           variable
@@ -367,9 +354,7 @@ multiple_permanova <- function(list_of_ps,
       data = dat,
       permutations = permutations
     )
-
-    adonis_result_list <- c(adonis_result_list, list(ado))
-  }
+  })
   return(adonis_result_list)
 }
 
@@ -395,20 +380,17 @@ permanova_p_average <- function(results_adonis, averagef = "median") {
   }
   average.fun <- match.fun(averagef)
 
-  # Find amount of rhs-variables to loop over in PERMANOVA results df
-  var_amount <- sum(!is.na(results_adonis[[1]]$`Pr(>F)`))
-  # Initialise results dataframe
-  df_results <- data.frame()
-  for (i in seq(var_amount)) {
-    df_results <-
-      rbind(
-        df_results,
-        cbind(
-          rownames(results_adonis[[1]])[i],
-          average.fun(sapply(results_adonis, function(df) (df[i, "Pr(>F)"])))
-        )
-      )
-  }
-  names(df_results) <- c("Variable", paste(averagef, "P-value"))
-  return(df_results)
+  p_values <- results_adonis |> furrr::future_map(~ {
+    if (!is.na(.x$`Pr(>F)`[1])) {
+      .x$`Pr(>F)`[1]
+    }
+  })
+  # Coerce p_values to dataframe and transpose it
+  res <- as.data.frame(p_values) |>
+    t() |>
+    as.data.frame()
+  res[nrow(res) + 1, 1] <- average.fun(res[[1]])
+  rownames(res) <- c(as.numeric(1:length(p_values)), paste(averagef))
+  names(res) <- "P-values"
+  return(res)
 }
