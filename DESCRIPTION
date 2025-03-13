@@ -1,9 +1,9 @@
 Package: standardanalysis
 Type: Package
 Title: Perform a standard microbiome analysis
-Version: 1.0.0
-Author: Derek van der Plas
-Maintainer: Derek van der Plas <d.w.k.van.der.plas@acta.nl>
+Version: 1.0.1
+Author: Derek van der Plas, Bernd W. Brandt, Georgios Miliarakis
+Maintainer: Georgios Miliarakis <g.miliarakis@acta.nl>
 Description: Perform standard microbiome analysis
     With this package you can more easily analyse microbiome data.
 	This package is built on phyloseq and/or microbiome functions.
@@ -17,9 +17,11 @@ Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Config/Needs/bioc:
+    future.apply,
     phyloseq,
     microbiome
 Imports: 
+    future.apply,
     pheatmap,
 	ggfortify,
     microbiome (>= 1.20.0),

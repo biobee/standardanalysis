@@ -8,7 +8,6 @@
 #' @export
 #'
 #' @examples rarefy_single(ps, depth = 4000, mc = 1000)
-
 rarefy_single <- function(pseq, depth = 0, mc = 1000) {
     if (depth == 0) {
         print("You chose not to rarefy. Samples with less than mc will be removed.")

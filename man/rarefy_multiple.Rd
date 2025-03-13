@@ -39,6 +39,7 @@ multiple_permanova(
   list_of_ps,
   distance,
   variable,
+  subset = NULL,
   permutations,
   pseudocount = 1,
   longit = NULL
@@ -79,6 +80,8 @@ permanova_p_average(results_adonis, averagef = "median")
 
 \item{distance}{The distance metric to be used in the PERMANOVA.}
 
+\item{subset}{A string with the expression to use to subset the dataß}
+
 \item{permutations}{The amount of permutations that should be done by PERMANOVA, typically something like 999, 9999, 99999. (For reason behind this study PERMANOVA.)}
 
 \item{pseudocount}{Pseudo count to be used in the case of Aitchison as distance metric. Default = 1.}
@@ -101,7 +104,8 @@ permanova_p_average(results_adonis, averagef = "median")
 (6) A dataframe with the average outcomes per variable from the PERMANOVAs.
 }
 \description{
-These functions are part of a method where multiple different subsamples are taken from a phyloseq object, to give an idea as to what the spread is subsampled sets.
+These functions are part of a method where multiple different subsamples are taken from a phyloseq object,
+to give an idea as to what the spread is subsampled sets.
 Because these functions are highly dependent on each other they are put together in one description. Different functions are numbered in the description.
 }
 \section{Functions}{
