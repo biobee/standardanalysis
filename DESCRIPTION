@@ -1,4 +1,4 @@
-Package: standardanalysis2
+Package: standardanalysis
 Type: Package
 Title: Perform a standard microbiome analysis
 Version: 1.0.1
@@ -25,6 +25,8 @@ Imports:
     pheatmap,
 	ggfortify,
     microbiome (>= 1.20.0),
-    phyloseq (>= 1.41.0)
+    phyloseq (>= 1.41.0),
+    DT,
+    ANCOMBC
 RoxygenNote: 7.3.2
 VignetteBuilder: knitr
