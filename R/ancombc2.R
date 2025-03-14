@@ -42,7 +42,7 @@ params <- list(
 
   # Pseudocount sensitivity analysis parameters
   pseudo_sens = TRUE, # Sensitivity analysis
-  s0_perc = 0.05, # -th percentile of std. error values for each fixed effect (microarray sig.- SAM)
+  s0_perc = 0.05 # -th percentile of std. error values for each fixed effect (microarray sig.- SAM)
 )
 
 #' Run ANCOM-BC2 Analysis

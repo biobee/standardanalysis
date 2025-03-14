@@ -80,32 +80,36 @@ rarefy_multiple <- function(pseq,
 #'
 #' @examples alpha_df <- calculate_alpha_df(ps_list, measures = c("Shannon", "Simpson", "Chao1"))
 calculate_alpha_df <- function(pseq_list, measures = NULL) {
-    alpha_df <- data.frame()
+  alpha_df <- data.frame()
 
-    # Estimate alpha diversity in parallel
-    alphas <- future.apply::future_lapply(pseq_list, function(ps) phyloseq::estimate_richness(ps, measures = measures))
+  # Estimate alpha diversity in parallel
+  alphas <- future.apply::future_lapply(pseq_list, function(ps) {
+    phyloseq::estimate_richness(ps, measures = measures)
+  },
+  future.seeds = TRUE
+  )
 
-    # Stack (row-wise) each element of the list in a dataframe
-    # Initialize an empty list to store the data frames
-    alpha_list <- list()
+  # Stack (row-wise) each element of the list in a dataframe
+  # Initialize an empty list to store the data frames
+  alpha_list <- list()
 
-    # Loop through each element in the 'alphas' list
-    for (i in seq_along(alphas)) {
-        # Get the current element
-        current_df <- alphas[[i]]
+  # Loop through each element in the 'alphas' list
+  for (i in seq_along(alphas)) {
+    # Get the current element
+    current_df <- alphas[[i]]
 
-        # # Create a new column with row names
-        current_df$X.SampleID <- rownames(current_df)
+    # # Create a new column with row names
+    current_df$X.SampleID <- rownames(current_df)
 
-        # Append the modified data frame to the list
-        alpha_list[[i]] <- current_df
-    }
+    # Append the modified data frame to the list
+    alpha_list[[i]] <- current_df
+  }
 
-    # Combine all data frames in the list into a single data frame
-    alpha_df <- do.call(rbind, alpha_list)
-    row.names(alpha_df) <- NULL
+  # Combine all data frames in the list into a single data frame
+  alpha_df <- do.call(rbind, alpha_list)
+  row.names(alpha_df) <- NULL
 
-    return(alpha_df)
+  return(alpha_df)
 }
 
 
@@ -183,117 +187,117 @@ multiple_test_alpha <- function(alpha_dataframe,
                                 variable,
                                 method = "wilcox.test",
                                 pair_by = NULL) {
-    # Catch wrong method call
-    allowed.methods <- c("t.test", "wilcox.test", "kruskal.test", "friedman.test")
-    if (!(method %in% allowed.methods)) {
-        stop(
-            "Non-supported method specified. Allowed methods are one of: ",
-            paste(allowed.methods, collapse = ", ")
-        )
-    }
-    test.func <- match.fun(method)
+  # Catch wrong method call
+  allowed.methods <- c("t.test", "wilcox.test", "kruskal.test", "friedman.test")
+  if (!(method %in% allowed.methods)) {
+    stop(
+      "Non-supported method specified. Allowed methods are one of: ",
+      paste(allowed.methods, collapse = ", ")
+    )
+  }
+  test.func <- match.fun(method)
 
-    meta_df <- microbiome::meta(pseq)
+  meta_df <- microbiome::meta(pseq)
 
-    # Are all requested variables in metadata?
-    if (!all(c(variable, pair_by) %in% names(meta_df))) {
-        stop_str_meta <- "At least one of your variables is not in the metadata.\n"
-        stop(stop_str_meta)
-    }
-    # Are all requested alpha diversities in alpha_data_frame?
-    if (!all(alpha_div %in% names(alpha_dataframe))) {
-        stop_str_alpha <- "At least one of your alpha_divs is not in the alpha data-frame.\n"
-        stop(stop_str_alpha)
-    }
-    # Can't use t-test / wilcox with more than 2 groups
-    if (length(unique(meta_df[[variable]])) > 2 &&
-        method %in% c("t.test", "wilcox.test")) {
-        stop("T.test or wilcoxon can only handle 2 groups.
+  # Are all requested variables in metadata?
+  if (!all(c(variable, pair_by) %in% names(meta_df))) {
+    stop_str_meta <- "At least one of your variables is not in the metadata.\n"
+    stop(stop_str_meta)
+  }
+  # Are all requested alpha diversities in alpha_data_frame?
+  if (!all(alpha_div %in% names(alpha_dataframe))) {
+    stop_str_alpha <- "At least one of your alpha_divs is not in the alpha data-frame.\n"
+    stop(stop_str_alpha)
+  }
+  # Can't use t-test / wilcox with more than 2 groups
+  if (length(unique(meta_df[[variable]])) > 2 &&
+    method %in% c("t.test", "wilcox.test")) {
+    stop("T.test or wilcoxon can only handle 2 groups.
          Use kruskal.test for non-paired and friedman.test for paired data.\n")
-    }
-    if (method == "kruskal.test") {
-        if (!is.null(pair_by)) {
-            stop("Kruskal-Wallis cannot test in a paired manner.\n")
-        }
-        test.func <- .test_kruskal
-    } else if (method == "friedman.test") {
-        test.func <- .test_friedman
-    }
-
-    paired <- FALSE
+  }
+  if (method == "kruskal.test") {
     if (!is.null(pair_by)) {
-        ID <- pair_by
-        if (length(pair_by) != 1) {
-            stop("Provide only 1 pair_by!\n")
-        }
-        # Make sure all data are paired and ordered on ID variable
-        SID_count <- table(microbiome::meta(pseq)[[X.SampleID]])
-        if (max(SID_count) < 2) {
-            stop("Your data are not paired on ", ID)
-        }
-        SID_all <- names(SID_count[SID_count == max(SID_count)])
-        ss_meta <- subset(microbiome::meta(pseq), base::get(ID) %in% SID_all)
-
-        # Refactor Subject/ pairby from 99 to 81
-        ss_meta[[X.SampleID]] <- factor(ss_meta[[X.SampleID]])
-
-        # Sort the dataframe on ID and grouping variable
-        # Only complete pairs are left hereafter
-        sort_by <- c(pair_by, variable)
-        meta_df <- ss_meta[do.call(order, ss_meta[sort_by]), ]
-        # Used prune_samples as subset_samples gave unexplained error with passing on sample_names argument
-        pseq <-
-            phyloseq::prune_samples(phyloseq::sample_names(pseq) %in% rownames(meta_df), pseq)
-
-        paired <- TRUE
+      stop("Kruskal-Wallis cannot test in a paired manner.\n")
     }
-    # Filter data from alpha_dataframe based on pseq because pairing might have removed unpaired samples;
-    # We do not rely on nrow() but on samples
-    # Note: this filtering HAS to be done after pairing samples in case of a paired test
-    if (!all(phyloseq::sample_names(pseq) %in% unique(alpha_dataframe$X.SampleID))) {
-        stop("Sample names in your alpha div dataframe and pseq object do not match.\n")
-    } else if (length(unique(alpha_dataframe$X.SampleID)) != phyloseq::nsamples(pseq)) {
-        warning(
-            "Your alpha div dataframe and pseq object do NOT contain the same number of samples.\n",
-            "Since all samples from pseq are in alpha_frame, we will select the pseq samples from alpha_dataframe.\n",
-            "If you are doing paired-testing this is expected.\n"
-        )
-        alpha_dataframe <- subset(alpha_dataframe, X.SampleID %in% phyloseq::sample_names(pseq))
-    }
-    # Set the splitting variable as factor
-    if (!is.factor(meta_df[[variable]])) {
-        meta_df[[variable]] <- as.factor(meta_df[[variable]])
-    }
+    test.func <- .test_kruskal
+  } else if (method == "friedman.test") {
+    test.func <- .test_friedman
+  }
 
-    # Perform testing on ps objects in parallel
-    list_of_test_p <- future.apply::future_lapply(seq(1, nrow(alpha_dataframe), by = nrow(meta_df)), function(ps) {
-        # Grab one ps set, and do test on it
-        values_single_ps <- alpha_dataframe[c(ps:(ps + nrow(meta_df) - 1)), alpha_div]
+  paired <- FALSE
+  if (!is.null(pair_by)) {
+    ID <- pair_by
+    if (length(pair_by) != 1) {
+      stop("Provide only 1 pair_by!\n")
+    }
+    # Make sure all data are paired and ordered on ID variable
+    SID_count <- table(microbiome::meta(pseq)[[X.SampleID]])
+    if (max(SID_count) < 2) {
+      stop("Your data are not paired on ", ID)
+    }
+    SID_all <- names(SID_count[SID_count == max(SID_count)])
+    ss_meta <- subset(microbiome::meta(pseq), base::get(ID) %in% SID_all)
 
-        # Always use meta[[variable]] here as meta has been sorted on the pairing
-        # If a paired t-test or Wilcoxon signed rank test are used, subset samples based on unique variable values
-        if (paired == TRUE & method %in% c("t.test", "wilcox.test")) {
-            test.func(
-                Pair(
-                    values_single_ps[meta_df[[variable]] == unique(meta_df[[variable]])[1]],
-                    values_single_ps[meta_df[[variable]] == unique(meta_df[[variable]])[2]]
-                ) ~ 1,
-                data = meta_df,
-                variable = variable,
-            )$p.value
-            # Otherwise (independent samples, Friedman or Kruskal-Wallis) use this function call
-        } else {
-            test.func(
-                values_single_ps ~ meta_df[[variable]],
-                data = meta_df,
-                variable = variable,
-                values_single_ps = values_single_ps,
-                ID = ID
-            )$p.value
-        }
-    })
-    list_of_test_p <- as.numeric(list_of_test_p)
-    return(list_of_test_p)
+    # Refactor Subject/ pairby from 99 to 81
+    ss_meta[[X.SampleID]] <- factor(ss_meta[[X.SampleID]])
+
+    # Sort the dataframe on ID and grouping variable
+    # Only complete pairs are left hereafter
+    sort_by <- c(pair_by, variable)
+    meta_df <- ss_meta[do.call(order, ss_meta[sort_by]), ]
+    # Used prune_samples as subset_samples gave unexplained error with passing on sample_names argument
+    pseq <-
+      phyloseq::prune_samples(phyloseq::sample_names(pseq) %in% rownames(meta_df), pseq)
+
+    paired <- TRUE
+  }
+  # Filter data from alpha_dataframe based on pseq because pairing might have removed unpaired samples;
+  # We do not rely on nrow() but on samples
+  # Note: this filtering HAS to be done after pairing samples in case of a paired test
+  if (!all(phyloseq::sample_names(pseq) %in% unique(alpha_dataframe$X.SampleID))) {
+    stop("Sample names in your alpha div dataframe and pseq object do not match.\n")
+  } else if (length(unique(alpha_dataframe$X.SampleID)) != phyloseq::nsamples(pseq)) {
+    warning(
+      "Your alpha div dataframe and pseq object do NOT contain the same number of samples.\n",
+      "Since all samples from pseq are in alpha_frame, we will select the pseq samples from alpha_dataframe.\n",
+      "If you are doing paired-testing this is expected.\n"
+    )
+    alpha_dataframe <- subset(alpha_dataframe, X.SampleID %in% phyloseq::sample_names(pseq))
+  }
+  # Set the splitting variable as factor
+  if (!is.factor(meta_df[[variable]])) {
+    meta_df[[variable]] <- as.factor(meta_df[[variable]])
+  }
+
+  # Perform testing on ps objects in parallel
+  list_of_test_p <- future.apply::future_lapply(seq(1, nrow(alpha_dataframe), by = nrow(meta_df)), function(ps) {
+    # Grab one ps set, and do test on it
+    values_single_ps <- alpha_dataframe[c(ps:(ps + nrow(meta_df) - 1)), alpha_div]
+
+    # Always use meta[[variable]] here as meta has been sorted on the pairing
+    # If a paired t-test or Wilcoxon signed rank test are used, subset samples based on unique variable values
+    if (paired == TRUE & method %in% c("t.test", "wilcox.test")) {
+      test.func(
+        Pair(
+          values_single_ps[meta_df[[variable]] == unique(meta_df[[variable]])[1]],
+          values_single_ps[meta_df[[variable]] == unique(meta_df[[variable]])[2]]
+        ) ~ 1,
+        data = meta_df,
+        variable = variable,
+      )$p.value
+      # Otherwise (independent samples, Friedman or Kruskal-Wallis) use this function call
+    } else {
+      test.func(
+        values_single_ps ~ meta_df[[variable]],
+        data = meta_df,
+        variable = variable,
+        values_single_ps = values_single_ps,
+        ID = ID
+      )$p.value
+    }
+  }, future.seeds = TRUE)
+  list_of_test_p <- as.numeric(list_of_test_p)
+  return(list_of_test_p)
 }
 
 .test_kruskal <- function(formula, ...) {
@@ -400,7 +404,7 @@ permanova_p_average <- function(results_adonis, averagef = "median") {
     if (!is.na(p$`Pr(>F)`[1])) {
       p$`Pr(>F)`[1]
     }
-  })
+  }, future.seeds = TRUE)
   # Coerce p_values to dataframe and transpose it
   res <- as.data.frame(p_values) |>
     t() |>
