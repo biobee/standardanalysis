@@ -1,10 +1,10 @@
 ---
-title: "standard-analysis-tutorial"
+title: "`standardanalysis` tutorial"
 output:
   rmarkdown::html_vignette: default
   rmarkdown::pdf_document: default
 vignette: >
-  %\VignetteIndexEntry{standard-analysis-tutorial}
+  %\VignetteIndexEntry{`standardanalysis` tutorial}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -30,7 +30,7 @@ library(standardanalysis)
 To load your data change the following variables to your directory and file names. Its useful to declare your treatment variable already because most examples use the "treatment_variable" already so then you dont have to change anything. Optionally set your working directory to save results in same (parent) folder.
 
 ```{r, message = FALSE}
-input_directory <- "Your/data/directory"
+input_directory <- "Path/to/your/data"
 biom_file_name <- "test_biom_water.biom"
 mapping_file_name <- "test_mapping_file.txt"
 treatment_variable <- "Source"

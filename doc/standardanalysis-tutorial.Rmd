@@ -1,8 +1,10 @@
 ---
-title: "standard-analysis-tutorial"
-output: rmarkdown::html_vignette
+title: "`standardanalysis` tutorial"
+output:
+  rmarkdown::html_vignette: default
+  rmarkdown::pdf_document: default
 vignette: >
-  %\VignetteIndexEntry{standard-analysis-tutorial}
+  %\VignetteIndexEntry{`standardanalysis` tutorial}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -14,32 +16,38 @@ knitr::opts_chunk$set(
 )
 ```
 
-```{r setup}
+# Installing packages
+```{r setup, include = FALSE}
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+base::RNGkind(kind = "L'Ecuyer-CMRG") # for parallel RNG
+```
+
+```{r}
 library(standardanalysis)
 ```
 
-
 # Microbiome data analysis in R
+To load your data change the following variables to your directory and file names. Its useful to declare your treatment variable already because most examples use the "treatment_variable" already so then you dont have to change anything. Optionally set your working directory to save results in same (parent) folder.
 
-Some text about adding data here.
 ```{r, message = FALSE}
-input_directory <- "C:/GitHub/ACTA-Preventive-Dentistry/standard-16s-analysis/data/"
+input_directory <- "Path/to/your/data"
 biom_file_name <- "test_biom_water.biom"
 mapping_file_name <- "test_mapping_file.txt"
 treatment_variable <- "Source"
 
-#setwd(input_directory)
+# setwd(input_directory)
 ```
 
 
 ## Input data
 
 #### Import the BIOM and mapping file.
-
+You can specify the metadata variables to be parsed as factors in the `factors` argument of `import_data`. Passing no arguments to the function will load the mock dataset.
 ```{r}
-ps <- import_data(biom_file_name, mapping_file_name)
+# ps <- import_data(biom_file_name, mapping_file_name, factors = "Source")
+ps <- import_data()
 
-# Function for clean-up taxonomy
+# Function for cleaning up taxonomy
 ps <- clean_taxonomy(ps)
 ```
 
@@ -67,7 +75,7 @@ microbiome::meta(ps)$X.SampleID
 
 ## Rarefaction of samples
 ```{r} 
-ps_rare <- rarefy(ps, depth = 0, mc = 1000)
+ps_rare <- rarefy_single(ps, depth = 0, mc = 1000)
 ```
 
 ## Calculating the diversity and plotting samples.
@@ -94,18 +102,19 @@ alpha_df <- calculate_alpha_df(ps_list, measures = c("Shannon", "Simpson", "Chao
 
 ps_multi_ss <- phyloseq::subset_samples(ps, microbiome::meta(ps)$X.SampleID %in% unique(alpha_df$X.SampleID))
 phyloseq::sample_data(ps_multi_ss) <- cbind(phyloseq::sample_data(ps_multi_ss), calculate_average_alpha_ps(alpha_df))
-
 ```
 
 ### Plotting diversity for multiple rarefaction
 Two alpha diversity boxplots are made. One per sample and one per group. Also, wilcoxon and t.tests are performed and p-values for each phyloseq object are returned. You can easily compute the median, mean etc of this list of p-values, by enclosing multiple_X_alpha() with the respective function. Choose test with test argument like this: test = "ttest" or test = "wilcoxon".
+
+You can aggregate the p-values with the Aggregated Cauchy Association test (ACAT) using the `acat` function.
 ```{r}
 microbiome::boxplot_abundance(ps_multi_ss, x = treatment_variable, y = "median_Shannon")
 microbiome::boxplot_abundance(ps_multi_ss, x = "X.SampleID", y = "median_Shannon")
 
 
 # Note that you dont use average values here but "raw" alpha-div
-multiple_test_alpha(
+mt_alpha <- multiple_test_alpha(
   alpha_df,
   pseq = ps_multi_ss,
   alpha_div = "Shannon",
@@ -113,23 +122,26 @@ multiple_test_alpha(
   method = "wilcox.test"
 )
 
+acat(mt_alpha)
 # median(x), mean(X), summary(x), min(x) (minimum)
 # For example - using the above:
-# median(multiple_test_alpha(alpha_df, ps, "Source", method = "t.test"))
+# median(mt_alpha)
 ```
 ### PERMANOVA for multiple phyloseq objects
-Here you can perform a PERMANOVA for all the phyloseq objects. "adonis_results" will give you the results for each phyloseq object (Remember that you can comment with "#" to stop a line from being run). With the permanova_p() function you can retrieve the median P-value over all objects.The PERMANOVA also works with multiple response variables. You can also do a longitudinal test by providing the 'longit' argument and assigning your "strata"-variable (PatientID, Location, etc.). It is also possible to do PERMANOVA with aitchison distance ( distance = "aitchison"). In that case, a shift of 1 is applied to each ps-object.
+Here you can perform a PERMANOVA on all phyloseq objects. `adonis_results` will give you the results for each phyloseq object (Remember that you can comment with "#" to stop a line from being run). You can subset the data you need by providing the `ps_ref` argument with the a subseted `phyloseq` object, OTU table or metadata. The function also works with multiple response variables. Additionally, you can do a longitudinal test by providing the 'longit' argument and assigning your "strata"-variable (PatientID, Location, etc.). Likewise, it is also possible to do PERMANOVA with Aitchison distance ( distance = "aitchison"). In that case, a shift of 1 is applied to each ps-object.
+
+With `permanova_average` you can aggregate the results from `multiple_permanova`. Calling it on the multiple PERMANOVA output (here `adonis_results`) creates an aggregated result dataframe with the median pseudo-F and its IQR (25th-75th percentile) as well as the ACAT p-value. It also plots the pseudo-F statistics and p-values.
 ```{r}
 adonis_results <- multiple_permanova(
   ps_list,
   distance = "bray",
   variable = "Readdepth + DNA_Conc",
   permutations = 999,
-  longit = "Source"
+  # longit = "Source",
+  ps_ref = NULL # Provide a phyloseq object
 )
 
-permanova_p_average(adonis_results, averagef = "max")
-
+permanova_average(adonis_results)
 ```
 
 ## Plotting abundance graph
@@ -150,7 +162,6 @@ barplot_abundance(
   detection = 5 / 100,
   prevalence = 0 / nrow(microbiome::meta(ps))
 ) #+ facet_wrap(~My_grouping_variable + My_other_grouping_variable, scales = "free_x")
-
 ```
 
 ## Performing a PCA, and making of ordination plot.
@@ -158,17 +169,18 @@ Samples are coloured by treatment variable, default transformation is center log
 ```{r}
 # Optional to also give a different shape to points based on a variable: shape = "My_other_variable"
 make_pca(ps,
-         colour_by = treatment_variable,
-         ellipse = T,
-         longi_lines = "Source"
-         )
+  colour_by = treatment_variable,
+  ellipse = T,
+  longi_lines = "Source"
+)
 ```
 
 ## Heatmap
 ```{r}
 make_heatmap(ps,
-             detection = 7,
-             prevalence = 0.4)
+  detection = 7,
+  prevalence = 0.4
+)
 
 # If this plot is too big to be shown properly, you can try copying the line with 'heatmap_make(...)' and paste it in the console-window down below this window.
 # Do play around with the detection and prevalence, these defaults are just values that worked with the test data: detection = 7, prevalence = 0.4
@@ -177,18 +189,24 @@ make_heatmap(ps,
 ## PERMANOVA
 ### Unpaired / independent
 The following is a PERMANOVA for unpaired or independent samples. You can subset as follows (for example): 
-> ps_subset_sick65 <- subset_samples(ps, HealthStatus == "Sick" & age > 65)
+```{r, eval=FALSE}
+ps_subset_sick65 <- phyloseq::subset_samples(ps, HealthStatus == "Sick" & age > 65)
+``` 
 
-Remember that subsetting decreases your sample size. In case you want to transform your data (i.e. CLR), now is a good time for that. Here I use a pseudocount of 1.  
+Remember that subsetting decreases your per-group sample size. In case you want to transform your data (i.e. CLR), now is a good time for that. Here I use a pseudocount of 1.  
 ```{r}
 ps_shift <- microbiome::transform(ps, transform = "shift", shift = 1)
 ps_clr <- microbiome::transform(ps_shift, transform = "clr")
 
 
-vegan::adonis2(as.formula(paste("phyloseq::distance(phyloseq::otu_table(ps_clr), method = 'euclidean') ~",
-                         treatment_variable)),
-       data = microbiome::meta(ps_clr),
-       permutations = 9999)
+vegan::adonis2(
+  as.formula(paste(
+    "phyloseq::distance(phyloseq::otu_table(ps_clr), method = 'euclidean') ~",
+    treatment_variable
+  )),
+  data = microbiome::meta(ps_clr),
+  permutations = 9999
+)
 ```
 
 ### Paired / longitudinal
@@ -203,10 +221,14 @@ perm <- permute::how(nperm = 9999)
 dat <- microbiome::meta(ps_clr)
 permute::setBlocks(perm) <- with(dat, microbiome::meta(ps_clr)[[longitudinal_variable]])
 
-vegan::adonis2(as.formula(paste("phyloseq::distance(phyloseq::otu_table(ps_clr), method='euclidean') ~",
-                         treatment_variable)),
-       data = dat,
-       permutations = perm)
+vegan::adonis2(
+  as.formula(paste(
+    "phyloseq::distance(phyloseq::otu_table(ps_clr), method='euclidean') ~",
+    treatment_variable
+  )),
+  data = dat,
+  permutations = perm
+)
 ```
 
 ## Differential abundance analysis
@@ -218,61 +240,96 @@ As for effect size threshold, in the ALDEx2 vignettes paragraph 5.3 the authors 
 ```{r, eval = F}
 # Calculating instances and clr transform
 x <- ALDEx2::aldex.clr(as.data.frame(phyloseq::otu_table(ps)),
-               microbiome::meta(ps)[[treatment_variable]],
-               mc.samples = 128,
-               denom = "all",
-               verbose = TRUE)
+  microbiome::meta(ps)[[treatment_variable]],
+  mc.samples = 128,
+  denom = "all",
+  verbose = TRUE
+)
 
 # Testing
 x.tt <- ALDEx2::aldex.ttest(x,
-                    paired.test = FALSE,
-                    verbose = FALSE)
+  paired.test = FALSE,
+  verbose = FALSE
+)
 x.effect <- ALDEx2::aldex.effect(x,
-                         CI = TRUE,
-                         verbose = FALSE,
-                         paired.test = FALSE)
+  CI = TRUE,
+  verbose = FALSE,
+  paired.test = FALSE
+)
 
 # Plotting
-x.all <- data.frame(x.tt,x.effect)
-par(mfrow = c(1,2))
-ALDEx2::aldex.plot(x.all, type = "MA", all.pch=19, all.cex=0.4,
-    called.col = "red", called.pch=20, called.cex=0.6,
-    thres.line.col= "darkgrey", thres.lwd=1.5,
-    test = "welch", rare.col = "black",
-    rare = 0, rare.pch=20, rare.cex=0.2 )
+x.all <- data.frame(x.tt, x.effect)
+par(mfrow = c(1, 2))
+ALDEx2::aldex.plot(x.all,
+  type = "MA", all.pch = 19, all.cex = 0.4,
+  called.col = "red", called.pch = 20, called.cex = 0.6,
+  thres.line.col = "darkgrey", thres.lwd = 1.5,
+  test = "welch", rare.col = "black",
+  rare = 0, rare.pch = 20, rare.cex = 0.2
+)
 ALDEx2::aldex.plot(x.all, type = "MW", test = "welch")
 
 # Effect interval does not cross 0, has effect > 1 (or -1), has significant test with error correction
 x.all_sign <- subset(x.all, (x.all$effect.low > 0 & x.all$effect.high > 0) |
-                      (x.all$effect.low < 0 & x.all$effect.high < 0) |
-                        abs(x.all$effect) > 1 |
-                        x.all$wi.eBH <= 0.05)
+  (x.all$effect.low < 0 & x.all$effect.high < 0) |
+  abs(x.all$effect) > 1 |
+  x.all$wi.eBH <= 0.05)
 
 # I will print only the columns that are more interesting
-x.all_int <- x.all_sign[-c(1,2,5:9,13)]
+x.all_int <- x.all_sign[-c(1, 2, 5:9, 13)]
 
 # Sorting on effect size
-print(x.all_int[order(abs(x.all_int$effect), decreasing = TRUE),])
+print(x.all_int[order(abs(x.all_int$effect), decreasing = TRUE), ])
 ```
 
 # ANCOM2
 ```{r, eval = F}
-out <- ANCOMBC::ancombc2(
-  data = ps,
-  fix_formula = treatment_variable)
-res_anc <- out$res
+params <- list(
+  # Model formula parameters
+  fixed_terms = "Timepoint + SubjectID", # Fixed effects formula
+  random_terms = "(Timepoint | SubjectID)", # Random effects formula
+  grouping_variable = NULL, # Grouping variable
 
-# Select columns with significance after correction
-res_anc_clean <- subset(res_anc, res_anc[,11] <= 0.05)
+  # General parameters
+  n_cores = 16, # Number of CPU cores or clusters
+  verbose = TRUE, # Verbose output
 
-# Only show relevant columns
-res_anc_int <- res_anc_clean[-c(2:8,10,12,13)]
-print(res_anc_int[order(res_anc_int[,3], decreasing = FALSE), ])
+  # Preprocessing parameters
+  taxonomy_level = NULL, # Taxonomic level to be tested
+  prevalence_cutoff = 0.1, # Prevalence cut-off
+  library_size_cutoff = 1000, # Library size cut-off
+
+  # Structural zeros parameters
+  structural_zero = TRUE, # Detect structural zeros
+  lower_bound = TRUE, # Classify a taxon as a structural zero using its asymptotic lower bound
+
+  # Statistical parameters
+  p_adj_method = "holm", # P-value (multiple testing) adjustment method
+  alpha = 0.05, # Significance level
+  iter = 10, # Number of REML AND EM iterations
+  bootstrap = 10, # Number of bootstrap samples, should be 100+
+
+  # Multi-group test parameters: set to FALSE if no grouping_variable!
+  global = TRUE, # Perform global test
+  pairwise = TRUE, # Perform pairwise tests
+  dunnet = TRUE, # Perform Dunnett's test
+  trend = TRUE, # Perform trend test
+
+  # Pseudocount sensitivity analysis parameters
+  pseudo_sens = TRUE, # Sensitivity analysis
+  s0_perc = 0.05 # -th percentile of std. error values for each fixed effect (microarray sig.- SAM)
+)
+
+out <- run_ancombc2(
+  ps = ps,
+  params = params
+)
+display_ancombc2_results(out, selected_results = c("global", "trend"))
 ```
 
 # Maaslin2
 ```{r, eval = F}
-# For both the asv/otu table as well as meta data 
+# For both the asv/otu table as well as meta data
 otu <- t(phyloseq::otu_table(ps))
 meta_data <- data.frame(microbiome::meta(ps))
 
@@ -288,15 +345,15 @@ fit_data <- Maaslin2::Maaslin2(
 
 res_ms2 <- fit_data$results
 res_ms2_clean <- subset(res_ms2, res_ms2$qval <= 0.05)
-res_ms2_int <- res_ms2_clean[-c(2,3,5,7,9,10)]
+res_ms2_int <- res_ms2_clean[-c(2, 3, 5, 7, 9, 10)]
 print(res_ms2_int)
 ```
 
 # Intersection of OTUs found differentially abundant by all three methods
 ```{r, eval = F}
 sign_aldex <- rownames(x.all_int)
-sign_ancom <- res_anc_int[,1]
-sign_maaslin2 <- res_ms2_int[,1]
+sign_ancom <- res_anc_int[, 1]
+sign_maaslin2 <- res_ms2_int[, 1]
 
 sign_3 <- intersect(sign_aldex, intersect(sign_ancom, sign_maaslin2))
 as.data.frame(tax_table(ps)[sign_3, -c(1:4)])

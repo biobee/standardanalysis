@@ -1,7 +1,7 @@
 Package: standardanalysis
 Type: Package
 Title: Perform a standard microbiome analysis
-Version: 1.0.1
+Version: 1.2.0
 Author: Derek van der Plas, Bernd W. Brandt, Georgios Miliarakis
 Maintainer: Georgios Miliarakis <g.miliarakis@acta.nl>
 Description: Perform standard microbiome analysis
@@ -14,7 +14,7 @@ LazyData: true
 Suggests: 
     knitr,
     rmarkdown,
-    testthat (>= 3.0.0)
+    DT
 Config/testthat/edition: 3
 Config/Needs/bioc:
     future.apply,
@@ -25,7 +25,6 @@ Imports:
     pheatmap,
 	ggfortify,
     microbiome (>= 1.20.0),
-    phyloseq (>= 1.41.0),
     DT,
     ANCOMBC
 RoxygenNote: 7.3.2
