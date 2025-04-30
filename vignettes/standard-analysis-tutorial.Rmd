@@ -30,21 +30,22 @@ library(standardanalysis)
 To load your data change the following variables to your directory and file names. Its useful to declare your treatment variable already because most examples use the "treatment_variable" already so then you dont have to change anything. Optionally set your working directory to save results in same (parent) folder.
 
 ```{r, message = FALSE}
-input_directory <- "C:/GitHub/ACTA-Preventive-Dentistry/standard-16s-analysis/data/"
+input_directory <- "Your/data/directory"
 biom_file_name <- "test_biom_water.biom"
 mapping_file_name <- "test_mapping_file.txt"
 treatment_variable <- "Source"
 
-# setwd("C:/GitHub/ACTA-Preventive-Dentistry/standard-16s-analysis/")
+# setwd(input_directory)
 ```
 
 
 ## Input data
 
 #### Import the BIOM and mapping file.
-
+You can specify the metadata variables to be parsed as factors in the `factors` argument of `import_data`. Passing no arguments to the function will load the mock dataset.
 ```{r}
-ps <- import_data(biom_file_name, mapping_file_name, factors = "Source")
+# ps <- import_data(biom_file_name, mapping_file_name, factors = "Source")
+ps <- import_data()
 
 # Function for cleaning up taxonomy
 ps <- clean_taxonomy(ps)
@@ -105,13 +106,15 @@ phyloseq::sample_data(ps_multi_ss) <- cbind(phyloseq::sample_data(ps_multi_ss), 
 
 ### Plotting diversity for multiple rarefaction
 Two alpha diversity boxplots are made. One per sample and one per group. Also, wilcoxon and t.tests are performed and p-values for each phyloseq object are returned. You can easily compute the median, mean etc of this list of p-values, by enclosing multiple_X_alpha() with the respective function. Choose test with test argument like this: test = "ttest" or test = "wilcoxon".
+
+You can aggregate the p-values with the Aggregated Cauchy Association test (ACAT) using the `acat` function.
 ```{r}
 microbiome::boxplot_abundance(ps_multi_ss, x = treatment_variable, y = "median_Shannon")
 microbiome::boxplot_abundance(ps_multi_ss, x = "X.SampleID", y = "median_Shannon")
 
 
 # Note that you dont use average values here but "raw" alpha-div
-multiple_test_alpha(
+mt_alpha <- multiple_test_alpha(
   alpha_df,
   pseq = ps_multi_ss,
   alpha_div = "Shannon",
@@ -119,23 +122,26 @@ multiple_test_alpha(
   method = "wilcox.test"
 )
 
+acat(mt_alpha)
 # median(x), mean(X), summary(x), min(x) (minimum)
 # For example - using the above:
-# median(multiple_test_alpha(alpha_df, ps, "Source", method = "t.test"))
+# median(mt_alpha)
 ```
 ### PERMANOVA for multiple phyloseq objects
-Here you can perform a PERMANOVA for all the phyloseq objects. "adonis_results" will give you the results for each phyloseq object (Remember that you can comment with "#" to stop a line from being run). You can subset the data you need by specifying the `subset` argument with the expression. With the `permanova_p_average()` function you can retrieve the median P-value over all objects.The PERMANOVA also works with multiple response variables. You can also do a longitudinal test by providing the 'longit' argument and assigning your "strata"-variable (PatientID, Location, etc.). It is also possible to do PERMANOVA with aitchison distance ( distance = "aitchison"). In that case, a shift of 1 is applied to each ps-object.
+Here you can perform a PERMANOVA on all phyloseq objects. `adonis_results` will give you the results for each phyloseq object (Remember that you can comment with "#" to stop a line from being run). You can subset the data you need by providing the `ps_ref` argument with the a subseted `phyloseq` object, OTU table or metadata. The function also works with multiple response variables. Additionally, you can do a longitudinal test by providing the 'longit' argument and assigning your "strata"-variable (PatientID, Location, etc.). Likewise, it is also possible to do PERMANOVA with Aitchison distance ( distance = "aitchison"). In that case, a shift of 1 is applied to each ps-object.
+
+With `permanova_average` you can aggregate the results from `multiple_permanova`. Calling it on the multiple PERMANOVA output (here `adonis_results`) creates an aggregated result dataframe with the median pseudo-F and its IQR (25th-75th percentile) as well as the ACAT p-value. It also plots the pseudo-F statistics and p-values.
 ```{r}
 adonis_results <- multiple_permanova(
   ps_list,
   distance = "bray",
   variable = "Readdepth + DNA_Conc",
   permutations = 999,
-  longit = "Source",
-  subset = "" # Write the expression to be used to subset your data
+  # longit = "Source",
+  ps_ref = NULL # Provide a phyloseq object
 )
 
-permanova_p_average(adonis_results, averagef = "max")
+permanova_average(adonis_results)
 ```
 
 ## Plotting abundance graph

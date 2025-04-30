@@ -98,7 +98,7 @@ calculate_alpha_df <- function(pseq_list, measures = NULL) {
     # Get the current element
     current_df <- alphas[[i]]
 
-    # # Create a new column with row names
+    # Create a new column with row names
     current_df$X.SampleID <- rownames(current_df)
 
     # Append the modified data frame to the list
@@ -114,7 +114,6 @@ calculate_alpha_df <- function(pseq_list, measures = NULL) {
 
 
 # ==============================================================================
-
 #' @describeIn rarefy_multiple Calculating of the averages of alpha-diversities
 #'
 #' @param alpha_dataframe (3) The dataframe with alpha-diversities received from calculate_alpha_df function.
@@ -270,93 +269,105 @@ multiple_test_alpha <- function(alpha_dataframe,
   }
 
   # Perform testing on ps objects in parallel
-  list_of_test_p <- future.apply::future_lapply(seq(1, nrow(alpha_dataframe), by = nrow(meta_df)), function(ps) {
-    # Grab one ps set, and do test on it
-    values_single_ps <- alpha_dataframe[c(ps:(ps + nrow(meta_df) - 1)), alpha_div]
+  list_of_test_p <- future.apply::future_lapply(
+    seq(1, nrow(alpha_dataframe),
+      by = nrow(meta_df)
+    ), function(ps) {
+      # Grab one ps set, and do test on it
+      values_single_ps <- alpha_dataframe[c(ps:(ps + nrow(meta_df) - 1)), alpha_div]
 
-    # Always use meta[[variable]] here as meta has been sorted on the pairing
-    # If a paired t-test or Wilcoxon signed rank test are used, subset samples based on unique variable values
-    if (paired == TRUE & method %in% c("t.test", "wilcox.test")) {
-      test.func(
-        Pair(
-          values_single_ps[meta_df[[variable]] == unique(meta_df[[variable]])[1]],
-          values_single_ps[meta_df[[variable]] == unique(meta_df[[variable]])[2]]
-        ) ~ 1,
-        data = meta_df,
-        variable = variable,
-      )$p.value
-      # Otherwise (independent samples, Friedman or Kruskal-Wallis) use this function call
-    } else {
-      test.func(
-        values_single_ps ~ meta_df[[variable]],
-        data = meta_df,
-        variable = variable,
-        values_single_ps = values_single_ps,
-        ID = ID
-      )$p.value
-    }
-  }, future.seed = TRUE)
+      # Always use meta[[variable]] here as meta has been sorted on the pairing
+      # If a paired t-test or Wilcoxon signed rank test are used, subset samples based on unique variable values
+      if (paired == TRUE & method %in% c("t.test", "wilcox.test")) {
+        test.func(
+          Pair(
+            values_single_ps[meta_df[[variable]] == unique(meta_df[[variable]])[1]],
+            values_single_ps[meta_df[[variable]] == unique(meta_df[[variable]])[2]]
+          ) ~ 1,
+          data = meta_df,
+          variable = variable,
+        )$p.value
+        # Otherwise (independent samples, Friedman or Kruskal-Wallis) use this function call
+      } else {
+        test.func(
+          values_single_ps ~ meta_df[[variable]],
+          data = meta_df,
+          variable = variable,
+          values_single_ps = values_single_ps,
+          ID = ID
+        )$p.value
+      }
+    },
+    future.seed = TRUE
+  )
   list_of_test_p <- as.numeric(list_of_test_p)
   return(list_of_test_p)
 }
 
 .test_kruskal <- function(formula, ...) {
-  return(stats::kruskal.test(formula))
+  stats::kruskal.test(formula)
 }
 
 .test_friedman <- function(formula, ...) {
   args <- list(...)
   lhs <- deparse(formula[[2]])
-  rhs <- deparse(formula[[3]])
-  return(stats::friedman.test(args[[lhs]], args$data[[args$variable]], args$data[[args$ID]]))
+  stats::friedman.test(args[[lhs]], args$data[[args$variable]], args$data[[args$ID]])
 }
 
 # PERMANOVA ====================================================================
 
-#' @describeIn rarefy_multiple Performing PERMANOVA
+#' @describeIn rarefy_multiple Run PERMANOVA on Multiple Rarefied Phyloseq Objects
 #'
-#' @param list_of_ps (5) The list with subsampled phyloseq objects.
-#' @param distance The distance metric to be used in the PERMANOVA.
-#' @param variable The variable in the metadata with the groups that you want to test.In the case you want to test more than one variable use this "variable1 + variable2". Interactions can also be tested, to do so instead of "+" use "*".
-#' @param subset A string with the expression to use to subset the data
-#' @param permutations The amount of permutations that should be done by PERMANOVA, typically something like 999, 9999, 99999. (For reason behind this study PERMANOVA.)
-#' @param pseudocount Pseudo count to be used in the case of Aitchison as distance metric. Default = 1.
-#' @param longit In case of paired analysis, what is variable is the data paired on.
+#' @description
+#' Performs PERMANOVA (adonis2) on each rarefied phyloseq object to test for group differences in community composition.
 #'
-#' @return (5) A vector with the outcomes from the permanova for each phyloseq object.
+#' @param list_of_ps List of rarefied phyloseq objects (from \code{rarefy_multiple}).
+#' @param distance Character. Distance metric to use (e.g., "bray", "aitchison").
+#' @param variable Character. Metadata variable(s) to test (e.g., "Group" or "Var1 + Var2").
+#' @param permutations Integer. Number of permutations for PERMANOVA.
+#' @param pseudocount Numeric. Pseudocount to add to OTU table for Aitchison distance (default: 1).
+#' @param ps_ref Optional. Reference phyloseq object for metadata subsetting.
+#' @param longit Optional. Name of metadata variable for paired/longitudinal analysis.
+#'
+#' @return A list of adonis2 results, one per rarefied dataset.
 #' @export
 #'
-#' @examples permanova_results <- multiple_permanova(ps_list, distance = "aitchison", variable = "Source + Time", permutations = 9999, longit = "SubjectID")
+#' @examples
+#' permanova_results <- multiple_permanova(ps_list, distance = "aitchison", variable = "Source", permutations = 9999, longit = "SubjectID")
 multiple_permanova <- function(list_of_ps,
                                distance,
                                variable,
-                               subset = NULL,
                                permutations,
                                pseudocount = 1,
+                               ps_ref = NULL,
                                longit = NULL) {
   adonis_result_list <- list()
 
   if (distance == "bray") {
-    warning("Using Bray-Curtis distance. Data is not log2-transformed in this function.\n")
+    warning("Using Bray-Curtis distance.
+    Data are not log2-transformed in this function.\n")
   }
-
-  # For metadata: take the first element in list_of_ps because meta data does not change
-  dat <- microbiome::meta(list_of_ps[[1]])
+  if (!is.null(ps_ref)) {
+    if (is(ps_ref, "phyloseq")) {
+      dat <- microbiome::meta(ps_ref)
+    } else {
+      stop("Error: 'ps_ref' is not a valid phyloseq object.\n")
+    }
+  } else {
+    dat <- microbiome::meta(list_of_ps[[1]])
+  }
   # Set up blocks and overwrite "permutations" if longitudinal testing
   if (!is.null(longit)) {
     warning("Testing with strata or longitudinal design.\n")
     permutations <- permute::how(nperm = permutations)
     permute::setBlocks(permutations) <- with(dat, dat[[longit]])
   } else {
-    warning("Testing without strata a.k.a. testing with cross-sectional design.\n")
+    warning("Testing without strata a.k.a.
+    testing with cross-sectional design.\n")
   }
 
   # Perform multiple PERMANOVAs in parallel: fit adonis2 on every ps in ps_list
   adonis_result_list <- future.apply::future_lapply(list_of_ps, function(ps) {
-    # In case of subsetting data based on conditions supplied as a string
-    if (!is.null(subset)) {
-      ps <- phyloseq::subset_samples(ps, eval(parse(text = subset)))
-    }
     # Apply pseudo inside of loop because of different otu-tables per subsample
     if (distance == "aitchison") {
       phyloseq::otu_table(ps) <- phyloseq::otu_table(ps) + pseudocount
@@ -378,40 +389,96 @@ multiple_permanova <- function(list_of_ps,
 }
 
 
-# PERMANOVA - list of dataframes - picking p-values ============================
-
-#' @describeIn rarefy_multiple Performing averaging on p-values from PERMANOVA
+# PERMANOVA - results aggregation ==============================================
+#' @describeIn rarefy_multiple Aggregate PERMANOVA Results Across Multiple Rarefactions
 #'
-#' @param results_adonis (6) The list with PERMANOVA results as received from the multiple_permanova function.
-#' @param averagef The average function to be used. This can be "median", "mean", "min", "max". Default (and recommended) is median.
+#' @description
+#' Aggregates the pseudo-F statistics and p-values from a list of PERMANOVA results (as produced by \code{multiple_permanova}). Returns summary statistics and, optionally, visualizes the distributions.
 #'
-#' @return (6) A dataframe with the average outcomes per variable from the PERMANOVAs.
+#' @param results_adonis List of PERMANOVA results as returned by \code{multiple_permanova}.
+#' @param plot Logical; if \code{TRUE}, boxplots of pseudo-F and p-values are generated. Default is \code{TRUE}.
+#'
+#' @return
+#' A named list with:
+#' \item{results}{A data frame containing the median and IQR of pseudo-F statistics, and the aggregated Cauchy p-value.}
+#' Additional attributes:
+#' \item{pseudoF_values}{Vector of pseudo-F statistics from each rarefaction.}
+#' \item{p_values}{Vector of p-values from each rarefaction.}
+#'
 #' @export
 #'
-#' @examples averages_PERMANOVA <- permanova_p_average(results_adonis, averagef = "median")
-permanova_p_average <- function(results_adonis, averagef = "median") {
-  allowed.methods <- c("median", "mean", "min", "max")
-  if (!averagef %in% allowed.methods) {
-    stop(
-      "Non-supported average function specified. Allowed methods are one of: ",
-      paste(allowed.methods, collapse = ", ")
+#' @examples
+#' results <- permanova_average(results_adonis)
+permanova_average <- function(results_adonis, plot = TRUE) {
+  p_values <- c()
+  f_values <- c()
+
+  # Try normal for-loop
+  for (res in results_adonis) {
+    p_values <- c(p_values, res$`Pr(>F)`[1]) # Extract p-values
+    f_values <- c(f_values, res$F[1]) # Extract pseudo-F
+  }
+  pseudoF_IQR <- quantile(f_values, probs = c(0.25, 0.75))
+  p_Cauchy <- acat(p_values)
+
+  # Results dataframe with pseudo-F median and IQR and the combined Cauchy p-value
+  res <- data.frame(list(
+    pseudoF_median = round(median(f_values), 1),
+    pseudoF_IQR = paste(round(pseudoF_IQR[1], 1), "-", round(pseudoF_IQR[2], 1)),
+    p_Cauchy = p_Cauchy
+  ))
+
+  out <- list(results = res)
+  base::attr(out, which = "pseudoF_values") <- f_values
+  base::attr(out, which = "p_values") <- p_values
+
+  if (plot == TRUE) {
+    boxplot(f_values,
+      main = "Distribution of PERMANOVA pseudo-F across rarefactions",
+      ylab = "pseudo-F statistic"
+    )
+    boxplot(p_values, ylab = "p-value", main = "Distribution of p-values with Cauchy aggregation", col = "white")
+    abline(h = p_Cauchy, col = "red", lwd = 2, lty = 2)
+    legend("topright",
+      legend = paste("Cauchy p =", signif(p_Cauchy, 3)),
+      col = "red", lty = 2, lwd = 2
     )
   }
-  average.fun <- match.fun(averagef)
+  return(out)
+}
+# MISCELLANEOUS ================================================================
+# Aggregated Cauchy Association test (ACAT)
+#' @describeIn rarefy_multiple #' Aggregated Cauchy Association Test (ACAT) for P-value Combination
+#'
+#' @description
+#' Combines multiple p-values into a single aggregated p-value using the Aggregated Cauchy Association Test (ACAT).
+#'
+#' @param p_values Numeric vector of p-values to combine. All values must be strictly between 0 and 1.
+#'
+#' @return
+#' A single aggregated p-value (numeric).
+#' @export
+#'
+#' @examples
+#' combined_p <- acat(c(0.01, 0.03, 0.2))
+acat <- function(p_values) {
+  # Check: all p-values should be in (0, 1)
+  if (any(p_values <= 0 | p_values >= 1)) {
+    stop("All p-values must be strictly between 0 and 1.")
+  }
 
-  # Extract the F-statistic p-values
-  p_values <- results_adonis |> future.apply::future_lapply(function(p) {
-    if (!is.na(p$`Pr(>F)`[1])) {
-      p$`Pr(>F)`[1]
-    }
-  }, future.seed = TRUE)
-  # Coerce p_values to dataframe and transpose it
-  res <- as.data.frame(p_values) |>
-    t() |>
-    as.data.frame()
-  # Calculate the statistic requested (average.fun) and append it to the tail of the dataframe
-  res[nrow(res) + 1, 1] <- average.fun(res[[1]])
-  rownames(res) <- c(as.numeric(seq(nrow(res) - 1)), paste(averagef))
-  names(res) <- "p-values"
-  return(res)
+  # Number of p-values
+  K <- length(p_values)
+
+  weights <- rep(1 / K, K)
+
+  # Transform each p-value to Cauchy scale
+  tans <- tan((0.5 - p_values) * pi)
+
+  # Weighted sum
+  T <- sum(weights * tans)
+
+  # Compute combined p-value
+  p_combined <- 0.5 - atan(T) / pi
+  return(p_combined)
 }

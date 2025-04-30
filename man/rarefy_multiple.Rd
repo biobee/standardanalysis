@@ -6,7 +6,8 @@
 \alias{calculate_average_alpha_ps}
 \alias{multiple_test_alpha}
 \alias{multiple_permanova}
-\alias{permanova_p_average}
+\alias{permanova_average}
+\alias{acat}
 \title{Subsample-loop}
 \usage{
 rarefy_multiple(
@@ -39,13 +40,15 @@ multiple_permanova(
   list_of_ps,
   distance,
   variable,
-  subset = NULL,
   permutations,
   pseudocount = 1,
+  ps_ref = NULL,
   longit = NULL
 )
 
-permanova_p_average(results_adonis, averagef = "median")
+permanova_average(results_adonis, plot = TRUE)
+
+acat(p_values)
 }
 \arguments{
 \item{pseq}{Your original pseq object. This is required only for the metadata.}
@@ -68,27 +71,31 @@ permanova_p_average(results_adonis, averagef = "median")
 
 \item{alpha_div}{The alpha-diversity measures that you want to test.}
 
-\item{averagef}{The average function to be used. This can be "median", "mean", "min", "max". Default (and recommended) is median.}
+\item{averagef}{The type of average function you want to use: median, mean, min (minimum) or max (maximum). Default is median (also recommended).}
 
-\item{variable}{The variable in the metadata with the groups that you want to test.In the case you want to test more than one variable use this "variable1 + variable2". Interactions can also be tested, to do so instead of "+" use "*".}
+\item{variable}{Character. Metadata variable(s) to test (e.g., "Group" or "Var1 + Var2").}
 
 \item{method}{What test should be performed.}
 
 \item{pair_by}{In case of paired analysis, what is variable is the data paired on.}
 
-\item{list_of_ps}{(5) The list with subsampled phyloseq objects.}
+\item{list_of_ps}{List of rarefied phyloseq objects (from \code{rarefy_multiple}).}
 
-\item{distance}{The distance metric to be used in the PERMANOVA.}
+\item{distance}{Character. Distance metric to use (e.g., "bray", "aitchison").}
 
-\item{subset}{A string with the expression to use to subset the dataß}
+\item{permutations}{Integer. Number of permutations for PERMANOVA.}
 
-\item{permutations}{The amount of permutations that should be done by PERMANOVA, typically something like 999, 9999, 99999. (For reason behind this study PERMANOVA.)}
+\item{pseudocount}{Numeric. Pseudocount to add to OTU table for Aitchison distance (default: 1).}
 
-\item{pseudocount}{Pseudo count to be used in the case of Aitchison as distance metric. Default = 1.}
+\item{ps_ref}{Optional. Reference phyloseq object for metadata subsetting.}
 
-\item{longit}{In case of paired analysis, what is variable is the data paired on.}
+\item{longit}{Optional. Name of metadata variable for paired/longitudinal analysis.}
 
-\item{results_adonis}{(6) The list with PERMANOVA results as received from the multiple_permanova function.}
+\item{results_adonis}{List of PERMANOVA results as returned by \code{multiple_permanova}.}
+
+\item{plot}{Logical; if \code{TRUE}, boxplots of pseudo-F and p-values are generated. Default is \code{TRUE}.}
+
+\item{p_values}{Numeric vector of p-values to combine. All values must be strictly between 0 and 1.}
 }
 \value{
 (1) A list of phyloseq objects with length of amount of iterations.
@@ -99,14 +106,26 @@ permanova_p_average(results_adonis, averagef = "median")
 
 (4) A vector with the p-values for each phyloseq object.
 
-(5) A vector with the outcomes from the permanova for each phyloseq object.
+A list of adonis2 results, one per rarefied dataset.
 
-(6) A dataframe with the average outcomes per variable from the PERMANOVAs.
+A named list with:
+\item{results}{A data frame containing the median and IQR of pseudo-F statistics, and the aggregated Cauchy p-value.}
+Additional attributes:
+\item{pseudoF_values}{Vector of pseudo-F statistics from each rarefaction.}
+\item{p_values}{Vector of p-values from each rarefaction.}
+
+A single aggregated p-value (numeric).
 }
 \description{
 These functions are part of a method where multiple different subsamples are taken from a phyloseq object,
 to give an idea as to what the spread is subsampled sets.
 Because these functions are highly dependent on each other they are put together in one description. Different functions are numbered in the description.
+
+Performs PERMANOVA (adonis2) on each rarefied phyloseq object to test for group differences in community composition.
+
+Aggregates the pseudo-F statistics and p-values from a list of PERMANOVA results (as produced by \code{multiple_permanova}). Returns summary statistics and, optionally, visualizes the distributions.
+
+Combines multiple p-values into a single aggregated p-value using the Aggregated Cauchy Association Test (ACAT).
 }
 \section{Functions}{
 \itemize{
@@ -118,9 +137,11 @@ Because these functions are highly dependent on each other they are put together
 
 \item \code{multiple_test_alpha()}: Testing of alpha-diversities between groups
 
-\item \code{multiple_permanova()}: Performing PERMANOVA
+\item \code{multiple_permanova()}: Run PERMANOVA on Multiple Rarefied Phyloseq Objects
 
-\item \code{permanova_p_average()}: Performing averaging on p-values from PERMANOVA
+\item \code{permanova_average()}: Aggregate PERMANOVA Results Across Multiple Rarefactions
+
+\item \code{acat()}: #' Aggregated Cauchy Association Test (ACAT) for P-value Combination
 
 }}
 \examples{
@@ -129,6 +150,7 @@ alpha_df <- calculate_alpha_df(ps_list, measures = c("Shannon", "Simpson", "Chao
 average_alphas <- calculate_average_alpha_ps(alpha_df, alpha_div = c("Shannon", "Simpson"), averagef = "min")
 alpha_p_values <- multiple_test_alpha(alpha_df, pseq, alpha_div = "Shannon", variable = "HealthStatus", method = "wilcoxon.test", pair_by = "SubjectID")
 median(alpha_p_values)
-permanova_results <- multiple_permanova(ps_list, distance = "aitchison", variable = "Source + Time", permutations = 9999, longit = "SubjectID")
-averages_PERMANOVA <- permanova_p_average(results_adonis, averagef = "median")
+permanova_results <- multiple_permanova(ps_list, distance = "aitchison", variable = "Source", permutations = 9999, longit = "SubjectID")
+results <- permanova_average(results_adonis)
+combined_p <- acat(c(0.01, 0.03, 0.2))
 }

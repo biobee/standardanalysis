@@ -4,12 +4,12 @@
 \alias{display_ancombc2_results}
 \title{Display ANCOM-BC2 Results}
 \usage{
-display_ancombc2_results(out, selected_results = NULL)
+display_ancombc2_results(out, analyses = NULL, html = FALSE)
 }
 \arguments{
 \item{out}{The output object from `run_ancombc2` (ANCOMBC::ancombc2 result).}
 
-\item{selected_results}{A character vector specifying which results to display.
+\item{analyses}{A character vector specifying which results to display.
 Possible values include "global", "pairwise", "dunnett", and "trend".
 If NULL, the primary analysis results are displayed.}
 }
@@ -21,7 +21,7 @@ This function presents the results of an ANCOM-BC2 analysis in an interactive ta
 }
 \examples{
 \dontrun{
-display_results(result, selected_results = c("global", "pairwise"))
+display_results(result, analyses = c("global", "pairwise"))
 }
 
 }

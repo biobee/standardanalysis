@@ -133,7 +133,7 @@ run_ancombc2 <- function(ps, params) {
 #' This function presents the results of an ANCOM-BC2 analysis in an interactive table.
 #'
 #' @param out The output object from `run_ancombc2` (ANCOMBC::ancombc2 result).
-#' @param selected_results A character vector specifying which results to display.
+#' @param analyses A character vector specifying which results to display.
 #'   Possible values include "global", "pairwise", "dunnett", and "trend".
 #'   If NULL, the primary analysis results are displayed.
 #'
@@ -141,11 +141,11 @@ run_ancombc2 <- function(ps, params) {
 #'
 #' @examples
 #' \dontrun{
-#' display_results(result, selected_results = c("global", "pairwise"))
+#' display_results(result, analyses = c("global", "pairwise"))
 #' }
 #'
 #' @export
-display_ancombc2_results <- function(out, selected_results = NULL) {
+display_ancombc2_results <- function(out, analyses = NULL, html = FALSE) {
   # Initialize list to store all DT objects
   dt_list <- list()
 
@@ -166,23 +166,24 @@ display_ancombc2_results <- function(out, selected_results = NULL) {
       "pairwise" = "ANCOM-BC2 Pairwise Comparison",
       "dunnett" = "ANCOM-BC2 Dunnett's Test",
       "trend" = "ANCOM-BC2 Trend Analysis",
-      "ANCOM-BC2 Primary Analysis"
+      "primary" = "ANCOM-BC2 Primary Analysis"
     )
   }
 
   # Process primary results
   numeric_cols <- sapply(out$res, is.numeric)
   out$res[numeric_cols] <- lapply(out$res[numeric_cols], function(x) round(x, 3))
-  dt_list[["primary"]] <- DT::datatable(out$res, caption = get_caption("primary"))
+
+  dt_list[["primary"]] <- ifelse(is.null(html), out$res, DT::datatable(out$res, caption = get_caption("primary")))
 
   # Process selected additional results
-  if (!is.null(selected_results)) {
-    for (result in selected_results) {
+  if (!is.null(analyses)) {
+    for (result in analyses) {
       temp_res <- get_result(out, result)
       if (!is.null(temp_res)) {
         numeric_cols <- sapply(temp_res, is.numeric)
         temp_res[numeric_cols] <- lapply(temp_res[numeric_cols], function(x) round(x, 3))
-        dt_list[[result]] <- DT::datatable(temp_res, caption = get_caption(result))
+        dt_list[[result]] <- ifelse(is.null(html), temp_res, DT::datatable(temp_res, caption = get_caption(result)))
       }
     }
   }
