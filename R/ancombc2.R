@@ -17,7 +17,7 @@ params <- list(
 
   # General parameters
   n_cores = 16, # Number of CPU cores or clusters
-  verbose = TRUE, # Verbose output
+  verbose = TRUE, # Verbose resultsput
 
   # Preprocessing parameters
   taxonomy_level = NULL, # Taxonomic level to be tested
@@ -82,7 +82,7 @@ params <- list(
 #'   \item{pseudo_sens}{Logical, whether to perform pseudocount sensitivity analysis.}
 #'   \item{s0_perc}{Percentile of standard error values for sensitivity analysis.}
 #'   \item{n_cores}{Number of CPU cores to use.}
-#'   \item{verbose}{Logical, whether to print verbose output.}
+#'   \item{verbose}{Logical, whether to print verbose resultsput.}
 #'   \item{iter}{Number of iterations for REML and EM algorithms.}
 #'   \item{bootstrap}{Number of bootstrap samples.}
 #' }
@@ -94,7 +94,7 @@ params <- list(
 #'
 #' @export
 run_ancombc2 <- function(ps, params) {
-  out <- ANCOMBC::ancombc2(
+  ANCOMBC::ancombc2(
     data = ps,
     tax_level = params$taxonomy_level,
     prv_cut = params$prevalence_cutoff,
@@ -125,14 +125,13 @@ run_ancombc2 <- function(ps, params) {
       node = list(2), solver = "ECOS", B = params$bootstrap
     )
   )
-  return(out)
 }
 
 #' Display ANCOM-BC2 Results
 #'
 #' This function presents the results of an ANCOM-BC2 analysis in an interactive table.
 #'
-#' @param out The output object from `run_ancombc2` (ANCOMBC::ancombc2 result).
+#' @param results The output object from `run_ancombc2` (ANCOMBC::ancombc2 result).
 #' @param analyses A character vector specifying which results to display.
 #'   Possible values include "global", "pairwise", "dunnett", and "trend".
 #'   If NULL, the primary analysis results are displayed.
@@ -145,17 +144,14 @@ run_ancombc2 <- function(ps, params) {
 #' }
 #'
 #' @export
-display_ancombc2_results <- function(out, analyses = NULL, html = FALSE) {
-  # Initialize list to store all DT objects
-  dt_list <- list()
-
+display_ancombc2_results <- function(results, analyses = NULL, html = TRUE) {
   # Helper functions remain the same
-  get_result <- function(out, result_name) {
+  get_result <- function(results, result_name) {
     switch(result_name,
-      "global" = out$res_global,
-      "pairwise" = out$res_pair,
-      "dunnett" = out$dunn,
-      "trend" = out$res_trend,
+      "global" = results$res_global,
+      "pairwise" = results$res_pair,
+      "dunnett" = results$dunn,
+      "trend" = results$res_trend,
       NULL
     )
   }
@@ -171,23 +167,34 @@ display_ancombc2_results <- function(out, analyses = NULL, html = FALSE) {
   }
 
   # Process primary results
-  numeric_cols <- sapply(out$res, is.numeric)
-  out$res[numeric_cols] <- lapply(out$res[numeric_cols], function(x) round(x, 3))
+  numeric_cols <- sapply(results$res, is.numeric)
+  results$res[numeric_cols] <- lapply(results$res[numeric_cols], function(x) round(x, 3))
 
-  dt_list[["primary"]] <- ifelse(is.null(html), out$res, DT::datatable(out$res, caption = get_caption("primary")))
-
+  out <- list()
+  if (html == TRUE) {
+    out$primary <- DT::datatable(results$res, caption = get_caption("primary"))
+  } else {
+    out$primary <- results$res
+  }
   # Process selected additional results
+  valid <- c("global", "pairwise", "dunnett", "trend")
   if (!is.null(analyses)) {
     for (result in analyses) {
-      temp_res <- get_result(out, result)
-      if (!is.null(temp_res)) {
+      if (result %in% valid) {
+        temp_res <- get_result(results, result)
         numeric_cols <- sapply(temp_res, is.numeric)
         temp_res[numeric_cols] <- lapply(temp_res[numeric_cols], function(x) round(x, 3))
-        dt_list[[result]] <- ifelse(is.null(html), temp_res, DT::datatable(temp_res, caption = get_caption(result)))
+        out[[result]] <- if (!html == TRUE) {
+          temp_res
+        } else {
+          DT::datatable(temp_res, caption = get_caption(result))
+        }
+      } else {
+        stop(paste("Error:", result, "not in", valid))
       }
     }
   }
 
   # Return all DT objects in a list
-  return(dt_list)
+  return(out)
 }
