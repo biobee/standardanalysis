@@ -4,10 +4,10 @@
 \alias{display_ancombc2_results}
 \title{Display ANCOM-BC2 Results}
 \usage{
-display_ancombc2_results(out, analyses = NULL, html = FALSE)
+display_ancombc2_results(results, analyses = NULL, html = TRUE)
 }
 \arguments{
-\item{out}{The output object from `run_ancombc2` (ANCOMBC::ancombc2 result).}
+\item{results}{The output object from `run_ancombc2` (ANCOMBC::ancombc2 result).}
 
 \item{analyses}{A character vector specifying which results to display.
 Possible values include "global", "pairwise", "dunnett", and "trend".

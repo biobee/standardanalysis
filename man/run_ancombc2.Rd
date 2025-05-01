@@ -45,7 +45,7 @@ The `params` list should contain the following elements:
   \item{pseudo_sens}{Logical, whether to perform pseudocount sensitivity analysis.}
   \item{s0_perc}{Percentile of standard error values for sensitivity analysis.}
   \item{n_cores}{Number of CPU cores to use.}
-  \item{verbose}{Logical, whether to print verbose output.}
+  \item{verbose}{Logical, whether to print verbose resultsput.}
   \item{iter}{Number of iterations for REML and EM algorithms.}
   \item{bootstrap}{Number of bootstrap samples.}
 }

@@ -12,22 +12,77 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = ">",
+  tidy = TRUE
 )
 ```
+## Introduction
 
-# Installing packages
-```{r setup, include = FALSE}
+This tutorial demonstrates how to use the `standardanalysis` package in R for comprehensive microbiome data analysis. `standardanalysis` provides a range of functions to streamline your workflow, from data import and preprocessing to diversity analysis, differential abundance testing, and statistical modeling.
+
+The package offers the following capabilities:
+
+- **Data Import and Preprocessing:**
+  - `import_data`: Import microbiome data from BIOM format and mapping files.
+  - `clean_taxonomy`: Clean and standardize taxonomic assignments.
+  - `remove_unwanted_samples`: Remove unwanted samples based on sample IDs.
+  - `rarefy_single`: Perform single rarefaction (subsampling) of a phyloseq object.
+
+- **Diversity analysis: multiple subsampling (rarefaction) workflow**
+  - `rarefy_multiple`: Create multiple rarefied phyloseq objects for assessing variance.
+  - `calculate_alpha_df`: Calculate alpha-diversity metrics for multiple rarefied objects.
+  - `calculate_average_alpha_ps`: Calculate average alpha-diversity across rarefactions.
+  - `multiple_test_alpha`: Test for differences in alpha-diversity across multiple rarefactions.
+  - `multiple_permanova`: Run PERMANOVA on multiple rarefied objects to assess community differences.
+  - `permanova_average`: Aggregate and summarize PERMANOVA results across rarefactions.
+
+  - **Visualization:**
+  - `barplot_abundance`: Generate stacked barplots of taxonomic abundances.
+  - `make_pca`: Perform Principal Coordinates Analysis (PCoA) and generate ordination plots.
+  - `make_heatmap`: Generate heatmaps of microbial taxa.
+
+- **Community Composition and Differential Abundance:**
+  - `run_ancombc2`: Run differential abundance analysis using ANCOMBC-2.
+
+Most functions in `standardanalysis` (except `permanova_average` and differential abundance analysis functions) support **parallel** execution using the [`future`](https://future.futureverse.org/) framework. This allows you to speed up computation by distributing the load across multiple CPU cores or nodes, which is especially useful for large datasets or high-performance computing (HPC) environments.
+
+## Prerequisites
+
+Before you begin, make sure you have the following packages installed:
+```{r}
 options(repos = c(CRAN = "https://cloud.r-project.org"))
-base::RNGkind(kind = "L'Ecuyer-CMRG") # for parallel RNG
+requirements <- c("devtools", "BiocManager", "future.apply")
+for (package in requirements) {
+  if (!requireNamespace(package, quietly = TRUE)) {
+    install.packages(package)
+    if (package == "BiocManager") {
+      BiocManager::install(c("phyloseq", "microbiome"))
+    }
+  }
+}
 ```
-
+## Loading packages
 ```{r}
 library(standardanalysis)
 ```
+## Setting up Parallelization
+
+To take advantage of parallel processing, set up your parallel backend using the `future` package. For example, to use all available cores on your machine:
+
+```{r}
+future::plan("multisession", workers = parallel::detectCores())
+```
+
+You can control the number of parallel workers with the `workers` argument (or `mc.cores` for some backends). For more information on available parallelization strategies and how to choose the best plan for your system (e.g., multicore, cluster, etc.), see the [future plan documentation](https://future.futureverse.org/reference/plan.html).
+
+**For reproducible analyses in parallel, set the random number generator kind to L'Ecuyer-CMRG:**
+```{r}
+base::RNGkind(kind = "L'Ecuyer-CMRG") # for parallel RNG
+```
 
 # Microbiome data analysis in R
-To load your data change the following variables to your directory and file names. Its useful to declare your treatment variable already because most examples use the "treatment_variable" already so then you dont have to change anything. Optionally set your working directory to save results in same (parent) folder.
+## Input data
+Let's start by loading your data: change the following variables to your directory and file names. It is useful to declare your treatment variable already because most examples use the "treatment_variable" already so then you dont have to change anything. Optionally set your working directory to save results in same (parent) folder.
 
 ```{r, message = FALSE}
 input_directory <- "Path/to/your/data"
@@ -38,11 +93,8 @@ treatment_variable <- "Source"
 # setwd(input_directory)
 ```
 
-
-## Input data
-
 #### Import the BIOM and mapping file.
-You can specify the metadata variables to be parsed as factors in the `factors` argument of `import_data`. Passing no arguments to the function will load the mock dataset.
+You can specify the metadata variables to be parsed as factors in the `factors` argument of `import_data`. Passing no arguments to the function will load the mock dataset, as here, for demonstration purposes.
 ```{r}
 # ps <- import_data(biom_file_name, mapping_file_name, factors = "Source")
 ps <- import_data()
@@ -89,6 +141,17 @@ alpha_boxplot(ps_rare, x_grp = treatment_variable, a_index = "diversity_shannon"
 ## Multiple rarefaction
 As an alternative to rarefying a phyloseq object once, here, we will perform rarefaction over multiple phyloseq objects. The idea is that it should give us an estimate of the variance in rarefied phyloseq objects that we would not be able to see from a single rarefied phyloseq object.
 
+### Workflow overview
+
+The main steps in the workflow are:
+
+1. **rarefy_multiple**: Create multiple rarefied versions of your phyloseq object.
+2. **calculate_alpha_df**: Calculate alpha-diversity metrics for each rarefied object.
+3. **calculate_average_alpha_ps**: Summarize alpha-diversity metrics across rarefactions.
+4. **multiple_test_alpha**: Test for group differences in alpha-diversity across rarefactions.
+5. **multiple_permanova**: Run PERMANOVA on each rarefied object to assess group differences in community composition.
+6. **permanova_average**: Aggregate and summarize PERMANOVA results across rarefactions.
+
 ### Making a list of rarefied phyloseq objects
 You can choose your sample size for rarefaction and the amount of rarefied phyloseq objects that you want to create.
 ```{r}
@@ -109,8 +172,8 @@ Two alpha diversity boxplots are made. One per sample and one per group. Also, w
 
 You can aggregate the p-values with the Aggregated Cauchy Association test (ACAT) using the `acat` function.
 ```{r}
-microbiome::boxplot_abundance(ps_multi_ss, x = treatment_variable, y = "median_Shannon")
-microbiome::boxplot_abundance(ps_multi_ss, x = "X.SampleID", y = "median_Shannon")
+microbiome::boxplot_abundance(ps_multi_ss, x = treatment_variable, y = "median.Shannon")
+microbiome::boxplot_abundance(ps_multi_ss, x = "X.SampleID", y = "median.Shannon")
 
 
 # Note that you dont use average values here but "raw" alpha-div
@@ -122,15 +185,31 @@ mt_alpha <- multiple_test_alpha(
   method = "wilcox.test"
 )
 
-acat(mt_alpha)
+
 # median(x), mean(X), summary(x), min(x) (minimum)
 # For example - using the above:
-# median(mt_alpha)
-```
-### PERMANOVA for multiple phyloseq objects
-Here you can perform a PERMANOVA on all phyloseq objects. `adonis_results` will give you the results for each phyloseq object (Remember that you can comment with "#" to stop a line from being run). You can subset the data you need by providing the `ps_ref` argument with the a subseted `phyloseq` object, OTU table or metadata. The function also works with multiple response variables. Additionally, you can do a longitudinal test by providing the 'longit' argument and assigning your "strata"-variable (PatientID, Location, etc.). Likewise, it is also possible to do PERMANOVA with Aitchison distance ( distance = "aitchison"). In that case, a shift of 1 is applied to each ps-object.
+median(mt_alpha)
 
-With `permanova_average` you can aggregate the results from `multiple_permanova`. Calling it on the multiple PERMANOVA output (here `adonis_results`) creates an aggregated result dataframe with the median pseudo-F and its IQR (25th-75th percentile) as well as the ACAT p-value. It also plots the pseudo-F statistics and p-values.
+# Performing ACAT
+acat(mt_alpha)
+```
+### PERMANOVA Across Multiple Rarefied Datasets
+
+PERMANOVA (Permutational Multivariate Analysis of Variance) is a widely used method to test for differences in community composition between groups based on distance matrices. In R, this is typically performed with the `adonis2` function from the `vegan` package, and is commonly used in microbiome data analysis workflows with `phyloseq` objects.
+
+#### Running PERMANOVA on Multiple Rarefied Phyloseq Objects
+
+The function `multiple_permanova()` allows you to run PERMANOVA on each rarefied version of your phyloseq object, making it possible to assess the consistency of your results across random subsamplings.
+
+Key features:
+- **Input:** A list of rarefied phyloseq objects (e.g., from `rarefy_multiple()`).
+- **Dissimilarity Index:** Supports all metrics accepted as  `method` by `vegan::vegdist()`, `"manhattan"`, `"euclidean"`, `"canberra"`, `"clark"`, `"bray"`, `"kulczynski"`, `"jaccard"`, `"gower"`, `"altGower"`, `"morisita"`, `"horn"`, `"mountford"`, `"raup"`, `"binomial"`, `"chao"`, `"cao"`, `"mahalanobis"`, `"chisq"`, `"chord"`, `"hellinger"`, `"aitchison"`, or `"robust.aitchison"`.
+- **Multiple variables:** You can test one or more metadata variables (e.g., `"Group"` or `"Var1 + Var2"`).
+- **Longitudinal/stratified designs:** By specifying the `longit` argument, you can account for repeated measures or paired samples.
+- **Aitchison support:** When using `"aitchison"` distance, a pseudocount is added to each OTU table.
+- **Parallelization:** The function uses `future.apply::future_lapply()` for efficient parallel computation.
+
+**Example usage:**
 ```{r}
 adonis_results <- multiple_permanova(
   ps_list,
@@ -140,7 +219,23 @@ adonis_results <- multiple_permanova(
   # longit = "Source",
   ps_ref = NULL # Provide a phyloseq object
 )
+```
 
+The output is a list of `adonis2` results, one for each rarefied dataset. This allows you to check whether your findings are robust to random subsampling, which is important in microbiome studies where library size can influence diversity and composition estimates.
+
+#### Aggregating and Visualizing PERMANOVA Results
+
+Once you have run PERMANOVA across all rarefied datasets, you can use `permanova_average()` to summarize and visualize the results.
+
+What `permanova_average()` provides:
+- The median (or other summary) of the pseudo-F statistics across rarefactions.
+- The interquartile range (IQR) of the pseudo-F statistics.
+- The median (or other summary) of the PERMANOVA p-values.
+- An aggregated p-value using the ACAT method, which combines all p-values into a single significance value.
+- Boxplots visualizing the distribution of pseudo-F statistics and p-values, with the ACAT p-value highlighted.
+
+**Example usage:**
+```{r}
 permanova_average(adonis_results)
 ```
 
@@ -212,9 +307,6 @@ vegan::adonis2(
 ### Paired / longitudinal
 In case you want to perform paired PERMANOVA, you have to assign the variable wherein you want to restrict permutations. This can be something like PatientID, Sample_location etc. Note that if it says in the output "permutation: free", something went wrong and you did not actually restrict the permutations. 
 ```{r}
-ps_shift <- microbiome::transform(ps, transform = "shift", shift = 1)
-ps_clr <- microbiome::transform(ps_shift, transform = "clr")
-
 longitudinal_variable <- ""
 
 perm <- permute::how(nperm = 9999)

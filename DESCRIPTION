@@ -24,8 +24,7 @@ Imports:
     future.apply,
     pheatmap,
 	ggfortify,
-    microbiome (>= 1.20.0),
-    DT,
-    ANCOMBC
+    phyloseq (>= 1.41.0),
+    microbiome (>= 1.20.0)
 RoxygenNote: 7.3.2
 VignetteBuilder: knitr

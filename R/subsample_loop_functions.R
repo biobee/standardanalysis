@@ -1,21 +1,53 @@
 #' @title Subsample-loop
 #'
-#' @description These functions are part of a method where multiple different subsamples are taken from a phyloseq object,
-#' to give an idea as to what the spread is subsampled sets.
-#' Because these functions are highly dependent on each other they are put together in one description. Different functions are numbered in the description.
+#' @description
+#' This suite of functions provides a workflow for performing and analyzing multiple rarefactions (random subsampling) of a \code{phyloseq} object. Multiple rarefactions help assess the variability and robustness of diversity and community composition metrics to subsampling.
 #'
-#' @describeIn rarefy_multiple Making multiple subsampled phyloseq objects
-#' @param pseq Your phyloseq object (or OTU-table (not recommended)).
-#' @param sample.size Your preferred sample size for rarefying.
-#' @param iter The amount of times you would like to rarefy (amount of comparisons).
-#' @param replace Perform subsampling with replacement or without (TRUE or FALSE).
+#' Most functions in this workflow (except \code{permanova_average}) support parallel execution using the \code{future} framework via \code{future.apply::future_lapply()}. This allows you to take advantage of multiple CPU cores or nodes to speed up computation, which is especially useful for large datasets or high-performance computing (HPC) environments.
+#'
+#' \strong{Getting started:}
+#' \enumerate{
+#'   \item Install the required package for parallelization:
+#'     \itemize{
+#'       \item \code{install.packages("future.apply")}
+#'     }
+#'   \item Before running these functions, set up your parallel backend using the \code{future} package. For example, to use all available cores on your machine:
+#'     \itemize{
+#'       \item \code{future::plan("multisession", workers = parallel::detectCores())}
+#'     }
+#'   \item For more information on available parallelization strategies and how to choose the best plan for your system (e.g., multicore, cluster, etc.), see the \href{https://future.futureverse.org/reference/plan.html}{future package documentation}.
+#'   \item You can control the number of parallel workers via the \code{workers} argument (or \code{mc.cores} for some backends).
+#'   \item For reproducible results in parallel, set the random number generator kind to L'Ecuyer-CMRG.
+#'   \item Example setup:
+#'     \itemize{
+#'       \item \code{future::plan("multisession", workers = 4)}
+#'       \item \code{base::RNGkind("L'Ecuyer-CMRG")}
+#'     }
+#' }
+#'
+#' The main steps in the workflow are:
+#' \enumerate{
+#'   \item \code{rarefy_multiple}: Create multiple rarefied versions of your phyloseq object.
+#'   \item \code{calculate_alpha_df}: Calculate alpha-diversity metrics for each rarefied object.
+#'   \item \code{calculate_average_alpha_ps}: Summarize alpha-diversity metrics across rarefactions.
+#'   \item \code{multiple_test_alpha}: Test for group differences in alpha-diversity across rarefactions.
+#'   \item \code{multiple_permanova}: Run PERMANOVA on each rarefied object to assess group differences in community composition.
+#'   \item \code{permanova_average}: Aggregate and summarize PERMANOVA results across rarefactions.
+#' }
+#'
+#' See the Details section for further information on each function.
+#' @describeIn rarefy_multiple Creating multiple subsampled (rarefied) \code{phyloseq} objects
+#' @param pseq (1) Your \code{phyloseq} object (or OTU-table-not recommended).
+#' @param sample.size Numeric. Your preferred sample size for rarefying.
+#' @param iter Numeric. The amount of times you would like to rarefy (amount of comparisons).
+#' @param replace Logical. Perform subsampling with replacement or without (\code{TRUE} or \code{FALSE}).
 #' @param seeds Vector of random seeds that you want to use. Possible to leave empty and have seed range to be 1:iterations.
-#' @param ... Additional arguments to  be passed on to phyloseq::rarefy_even_depth
-#'
-#' @return (1) A list of phyloseq objects with length of amount of iterations.
+#' @param ... Additional arguments to  be passed on to \code{phyloseq::rarefy_even_depth}
+#' @return (1) A list of \code{phyloseq} objects with length of amount of \code{iter}
+#' @details
+#' (1) \code{rarefy_multiple} performs multiple rarefactions (random subsampling without or with replacement) on a \code{phyloseq} object. For each iteration, the function applies \code{\link[phyloseq]{rarefy_even_depth}} using a specified or automatically generated random seed. The result is a list of rarefied \code{phyloseq} objects, each representing a different random subsample at the specified depth. Rarefaction parameters (depth and replacement) are stored as attributes in the output list for reference.
 #' @export
-#'
-#' @examples ps_list <- rarefy_multiple(ps, sample.size = 8000, iter = 100)
+#' @examples pseq_list <- rarefy_multiple(pseq, sample.size = 8000, iter = 100)
 # based on https://github.com/vmikk/metagMisc/blob/master/R/phyloseq_mult_raref.R
 rarefy_multiple <- function(pseq,
                             sample.size = NULL,
@@ -70,21 +102,22 @@ rarefy_multiple <- function(pseq,
 
 # ==============================================================================
 
-#' @describeIn rarefy_multiple Calculating of alpha-diversities
-#'
-#' @param pseq_list (2) The list of phyloseq objects received from rarefy_multiple function.
-#' @param measures The alpha-diversity measures that you want to compute.
-#'
-#' @return (2) A dataframe giving the alpha-diversities requested for each phyloseq object.
+#' @describeIn rarefy_multiple Estimating alpha-diversities
+#' @param pseq_list (2) The list of \code{phyloseq} objects received from rarefy_multiple function.
+#' @param measures Character. The alpha-diversity measure(s) you want to compute.
+#' @return (2) A \code{data.frame} with the alpha-diversities requested for each \code{phyloseq} object.
+#' @details
+#' (2) \code{calculate_alpha_df} calculates alpha-diversity metrics for each rarefied \code{phyloseq} object in the input list. It applies `phyloseq::estimate_richness` to each object, optionally for a user-specified set of diversity measures. The results are combined into a single data frame, with each row corresponding to a sample from a particular rarefaction. This allows downstream analyses of the distribution of alpha-diversity across rarefactions.
 #' @export
-#'
-#' @examples alpha_df <- calculate_alpha_df(ps_list, measures = c("Shannon", "Simpson", "Chao1"))
-calculate_alpha_df <- function(pseq_list, measures = NULL) {
+#' @examples alpha_df <- calculate_alpha_df(pseq_list, measures = c("Shannon", "Simpson", "Chao1"))
+calculate_alpha_df <- function(
+    pseq_list,
+    measures = NULL) {
   alpha_df <- data.frame()
 
   # Estimate alpha diversity in parallel
-  alphas <- future.apply::future_lapply(pseq_list, function(ps) {
-    phyloseq::estimate_richness(ps, measures = measures)
+  alphas <- future.apply::future_lapply(pseq_list, function(pseq) {
+    phyloseq::estimate_richness(pseq, measures = measures)
   },
   future.seed = TRUE
   )
@@ -115,14 +148,13 @@ calculate_alpha_df <- function(pseq_list, measures = NULL) {
 
 # ==============================================================================
 #' @describeIn rarefy_multiple Calculating of the averages of alpha-diversities
-#'
-#' @param alpha_dataframe (3) The dataframe with alpha-diversities received from calculate_alpha_df function.
-#' @param alpha_div The alpha-diversity measures that you want to average. Default is NULL which gives all average for all measures in the dataframe.
-#' @param averagef The type of average function you want to use: median, mean, min (minimum) or max (maximum). Default is median (also recommended).
-#'
+#' @param alpha_dataframe (3) The \code{data.frame} with alpha-diversities received from \code{calculate_alpha_df}.
+#' @param alpha_div Character. The alpha-diversity measure(s) that you want to average. Default is \code{NULL} which gives all average for all measures in the dataframe.
+#' @param averagef Character. The name of average function you want to use: median, mean, min (minimum) or max (maximum). Default is median (also recommended).
 #' @return (3) A dataframe with the average alpha-diversities.
+#' @details
+#' (3) \code{calculate_average_alpha_ps} summarizes alpha-diversity values across multiple rarefactions for each sample. For each alpha-diversity metric, it computes the specified summary statistic (median, mean, min, or max) across all rarefied datasets. The output is a data frame where each row corresponds to a sample and each column to a summarized diversity measure. This facilitates comparison of central tendencies or ranges of diversity estimates across samples.
 #' @export
-#'
 #' @examples average_alphas <- calculate_average_alpha_ps(alpha_df, alpha_div = c("Shannon", "Simpson"), averagef = "min")
 calculate_average_alpha_ps <- function(alpha_dataframe,
                                        alpha_div = NULL,
@@ -154,7 +186,7 @@ calculate_average_alpha_ps <- function(alpha_dataframe,
   avg_df <- aggregate(. ~ X.SampleID, data = alpha_dataframe[, c("X.SampleID", alpha_div)], FUN = average.fun)
 
   # Set column names based on averaging function used and alpha diversity used
-  names(avg_df)[-1] <- paste(averagef, alpha_div, sep = "_")
+  names(avg_df)[-1] <- paste(averagef, alpha_div, sep = ".")
 
   # Set SampleID as row names
   rownames(avg_df) <- avg_df$X.SampleID
@@ -167,25 +199,24 @@ calculate_average_alpha_ps <- function(alpha_dataframe,
 # Alpha div test ===============================================================
 
 #' @describeIn rarefy_multiple Testing of alpha-diversities between groups
-#'
-#' @param alpha_dataframe (4) The dataframe with alpha-diversities received from calculate_alpha_df function.
-#' @param pseq Your original pseq object. This is required only for the metadata.
-#' @param alpha_div The alpha-diversity measures that you want to test.
-#' @param variable The variable in the metadata with the groups that you want to test.
-#' @param method What test should be performed.
-#' @param pair_by In case of paired analysis, what is variable is the data paired on.
-#'
-#' @return (4) A vector with the p-values for each phyloseq object.
+#' @param alpha_dataframe (4) The \code{data.frame} with alpha-diversities received from \code{calculate_alpha_df}.
+#' @param pseq Your original \code{phyloseq} object for the metadata.
+#' @param alpha_div Character. The alpha-diversity measures that you want to test.
+#' @param variable Character. The variable in the metadata with the groups that you want to test.
+#' @param method Character. which test should be performed.
+#' @param pair.by Character. In case of paired analysis, which is variable is the data paired on.
+#' @return (4) A vector with the p-values for each \code{phyloseq} object.
+#' @details
+#' (4) \code{multiple_test_alpha} tests for differences in alpha-diversity between groups, separately for each rarefied dataset. Supported statistical tests include t-test, Wilcoxon rank-sum, Kruskal-Wallis, and Friedman test, with optional support for paired data. For each rarefied dataset, the appropriate test is applied to compare groups defined by a metadata variable. The output is a vector of p-values, one for each rarefaction, which can be aggregated or visualized to assess the robustness of group differences to subsampling variation.
 #' @export
-#'
-#' @examples alpha_p_values <- multiple_test_alpha(alpha_df, pseq, alpha_div = "Shannon", variable = "HealthStatus", method = "wilcoxon.test", pair_by = "SubjectID")
-#' @examples median(alpha_p_values)
+#' @examples alpha_pvals <- multiple_test_alpha(alpha_df, pseq, alpha_div = "Shannon", variable = "HealthStatus", method = "wilcoxon.test", pair.by = "SubjectID")
+#' @examples median(alpha_pvals)
 multiple_test_alpha <- function(alpha_dataframe,
                                 pseq, # one pseq object with same metadata as in list
                                 alpha_div,
                                 variable,
                                 method = "wilcox.test",
-                                pair_by = NULL) {
+                                pair.by = NULL) {
   # Catch wrong method call
   allowed.methods <- c("t.test", "wilcox.test", "kruskal.test", "friedman.test")
   if (!(method %in% allowed.methods)) {
@@ -199,7 +230,7 @@ multiple_test_alpha <- function(alpha_dataframe,
   meta_df <- microbiome::meta(pseq)
 
   # Are all requested variables in metadata?
-  if (!all(c(variable, pair_by) %in% names(meta_df))) {
+  if (!all(c(variable, pair.by) %in% names(meta_df))) {
     stop_str_meta <- "At least one of your variables is not in the metadata.\n"
     stop(stop_str_meta)
   }
@@ -215,7 +246,7 @@ multiple_test_alpha <- function(alpha_dataframe,
          Use kruskal.test for non-paired and friedman.test for paired data.\n")
   }
   if (method == "kruskal.test") {
-    if (!is.null(pair_by)) {
+    if (!is.null(pair.by)) {
       stop("Kruskal-Wallis cannot test in a paired manner.\n")
     }
     test.func <- .test_kruskal
@@ -224,10 +255,10 @@ multiple_test_alpha <- function(alpha_dataframe,
   }
 
   paired <- FALSE
-  if (!is.null(pair_by)) {
-    ID <- pair_by
-    if (length(pair_by) != 1) {
-      stop("Provide only 1 pair_by!\n")
+  if (!is.null(pair.by)) {
+    ID <- pair.by
+    if (length(pair.by) != 1) {
+      stop("Provide only 1 pair.by!\n")
     }
     # Make sure all data are paired and ordered on ID variable
     SID_count <- table(microbiome::meta(pseq)[[X.SampleID]])
@@ -242,7 +273,7 @@ multiple_test_alpha <- function(alpha_dataframe,
 
     # Sort the dataframe on ID and grouping variable
     # Only complete pairs are left hereafter
-    sort_by <- c(pair_by, variable)
+    sort_by <- c(pair.by, variable)
     meta_df <- ss_meta[do.call(order, ss_meta[sort_by]), ]
     # Used prune_samples as subset_samples gave unexplained error with passing on sample_names argument
     pseq <-
@@ -268,13 +299,13 @@ multiple_test_alpha <- function(alpha_dataframe,
     meta_df[[variable]] <- as.factor(meta_df[[variable]])
   }
 
-  # Perform testing on ps objects in parallel
-  list_of_test_p <- future.apply::future_lapply(
+  # Perform testing on pseq objects in parallel
+  pvals <- future.apply::future_lapply(
     seq(1, nrow(alpha_dataframe),
       by = nrow(meta_df)
-    ), function(ps) {
-      # Grab one ps set, and do test on it
-      values_single_ps <- alpha_dataframe[c(ps:(ps + nrow(meta_df) - 1)), alpha_div]
+    ), function(pseq) {
+      # Grab one pseq set, and do test on it
+      values_single_ps <- alpha_dataframe[c(pseq:(pseq + nrow(meta_df) - 1)), alpha_div]
 
       # Always use meta[[variable]] here as meta has been sorted on the pairing
       # If a paired t-test or Wilcoxon signed rank test are used, subset samples based on unique variable values
@@ -300,8 +331,8 @@ multiple_test_alpha <- function(alpha_dataframe,
     },
     future.seed = TRUE
   )
-  list_of_test_p <- as.numeric(list_of_test_p)
-  return(list_of_test_p)
+  pvals <- as.numeric(pvals)
+  return(pvals)
 }
 
 .test_kruskal <- function(formula, ...) {
@@ -317,24 +348,20 @@ multiple_test_alpha <- function(alpha_dataframe,
 # PERMANOVA ====================================================================
 
 #' @describeIn rarefy_multiple Run PERMANOVA on Multiple Rarefied Phyloseq Objects
-#'
-#' @description
-#' Performs PERMANOVA (adonis2) on each rarefied phyloseq object to test for group differences in community composition.
-#'
-#' @param list_of_ps List of rarefied phyloseq objects (from \code{rarefy_multiple}).
-#' @param distance Character. Distance metric to use (e.g., "bray", "aitchison").
-#' @param variable Character. Metadata variable(s) to test (e.g., "Group" or "Var1 + Var2").
+#' @param pseq_list (5) List or vector of rarefied \code{phyloseq} objects (from \code{rarefy_multiple}).
+#' @param distance Character. Distance metric to use (e.g., \code{"bray"}, \code{"aitchison"}).
+#' @param variable Character. Metadata variable(s) to test (e.g., \code{"Group"} or \code{"Var1 + Var2"}).
 #' @param permutations Integer. Number of permutations for PERMANOVA.
 #' @param pseudocount Numeric. Pseudocount to add to OTU table for Aitchison distance (default: 1).
-#' @param ps_ref Optional. Reference phyloseq object for metadata subsetting.
+#' @param ps_ref Optional. Reference \code{phyloseq} object for metadata subsetting.
 #' @param longit Optional. Name of metadata variable for paired/longitudinal analysis.
-#'
-#' @return A list of adonis2 results, one per rarefied dataset.
+#' @return (5) A list of adonis2 results, one per rarefied dataset.
+#' @details
+#' (4) \code{multiple_permanova} runs PERMANOVA (\code{\link[vegan]{adonis2}} ) on each rarefied \code{phyloseq} object to test for group differences in community composition. The specified distance metric (e.g., Bray-Curtis, Aitchison) is computed for each rarefied dataset, and the PERMANOVA is performed using the provided metadata variable(s). If a longitudinal variable is specified, permutation blocks are set up accordingly. The output is a list of adonis2 result objects, one per rarefied dataset, allowing assessment of the consistency of PERMANOVA results across rarefactions.
 #' @export
-#'
 #' @examples
-#' permanova_results <- multiple_permanova(ps_list, distance = "aitchison", variable = "Source", permutations = 9999, longit = "SubjectID")
-multiple_permanova <- function(list_of_ps,
+#' permanova_results <- multiple_permanova(pseq_list, distance = "aitchison", variable = "Source", permutations = 9999, longit = "SubjectID")
+multiple_permanova <- function(pseq_list,
                                distance,
                                variable,
                                permutations,
@@ -354,7 +381,7 @@ multiple_permanova <- function(list_of_ps,
       stop("Error: 'ps_ref' is not a valid phyloseq object.\n")
     }
   } else {
-    dat <- microbiome::meta(list_of_ps[[1]])
+    dat <- microbiome::meta(pseq_list[[1]])
   }
   # Set up blocks and overwrite "permutations" if longitudinal testing
   if (!is.null(longit)) {
@@ -366,16 +393,16 @@ multiple_permanova <- function(list_of_ps,
     testing with cross-sectional design.\n")
   }
 
-  # Perform multiple PERMANOVAs in parallel: fit adonis2 on every ps in ps_list
-  adonis_result_list <- future.apply::future_lapply(list_of_ps, function(ps) {
+  # Perform multiple PERMANOVAs in parallel: fit adonis2 on every pseq in pseq_list
+  adonis_result_list <- future.apply::future_lapply(pseq_list, function(pseq) {
     # Apply pseudo inside of loop because of different otu-tables per subsample
     if (distance == "aitchison") {
-      phyloseq::otu_table(ps) <- phyloseq::otu_table(ps) + pseudocount
+      phyloseq::otu_table(pseq) <- phyloseq::otu_table(pseq) + pseudocount
     }
     vegan::adonis2(
       as.formula(
         paste(
-          "vegan::vegdist(t(phyloseq::otu_table(ps)),",
+          "vegan::vegdist(t(phyloseq::otu_table(pseq)),",
           quote(distance), # vegdist requires quoted method arg
           ") ~ ",
           variable
@@ -391,94 +418,143 @@ multiple_permanova <- function(list_of_ps,
 
 # PERMANOVA - results aggregation ==============================================
 #' @describeIn rarefy_multiple Aggregate PERMANOVA Results Across Multiple Rarefactions
+#' @param results_adonis (5) A vector or list of PERMANOVA results as received from the \code{multiple_permanova}.
+#' @param averagef Character. The averaging function to use. One of \code{"median"}, \code{"mean"}, \code{"min"}, or \code{"max"}.
+#'   Default (and recommended) is \code{"median"}.
+#' @param plot Logical. if \code{TRUE} (default), boxplots of pseudo-F statistics and p-values across rarefactions are displayed.
+#' @return (5) A named list containing:
+#'   1. \code{F.<averagef>}{The aggregated pseudo-F statistic (e.g., median pseudo-F).
+#'   2. \code{F.IQR}The interquartile range (IQR) of pseudo-F statistics across rarefactions, rounded to 1 decimal, formatted as a string.
+#'   3. \code{p.<averagef>} The aggregated p-value (e.g., median p-value).
+#'   4. \code{p.Cauchy} The aggregated p-value computed using the Aggregated Cauchy Association Test (ACAT).
+#'   5. \code{Fvals} Vector of pseudo-F statistics from each rarefaction.
+#'   6. \code{pvals} Vector of p-values from each rarefaction.
+#' }
+#' @details
+#' (5) \code{permanova_average} aggregates PERMANOVA results obtained from \code{\link[vegan]{adonis2}} on multiple rarefied \code{phyloseq} objects, the output of \code{multiple_permanova}.
+#' It computes the summary statistic (median, mean, min, or max) of the PERMANOVA pseudo-F statistics and p-values, and combines p-values using the ACAT method (\code{\link{acat}}) for a robust overall significance measure. If \code{plot = TRUE} (default), boxplots visualize the distribution of pseudo-F statistics and p-values, with the ACAT p-value indicated by a red dashed line.
 #'
-#' @description
-#' Aggregates the pseudo-F statistics and p-values from a list of PERMANOVA results (as produced by \code{multiple_permanova}). Returns summary statistics and, optionally, visualizes the distributions.
-#'
-#' @param results_adonis List of PERMANOVA results as returned by \code{multiple_permanova}.
-#' @param plot Logical; if \code{TRUE}, boxplots of pseudo-F and p-values are generated. Default is \code{TRUE}.
-#'
-#' @return
-#' A named list with:
-#' \item{results}{A data frame containing the median and IQR of pseudo-F statistics, and the aggregated Cauchy p-value.}
-#' Additional attributes:
-#' \item{pseudoF_values}{Vector of pseudo-F statistics from each rarefaction.}
-#' \item{p_values}{Vector of p-values from each rarefaction.}
-#'
+#' @references
+#' Liu, Y., & Xie, J. (2019).
+#' Cauchy Combination Test: A Powerful Test With Analytic p-Value Calculation Under Arbitrary Dependency Structures.
+#' \emph{Journal of the American Statistical Association}, \bold{115}(529), 393–402.
+#' \doi{10.1080/01621459.2018.1554485}
 #' @export
-#'
 #' @examples
-#' results <- permanova_average(results_adonis)
-permanova_average <- function(results_adonis, plot = TRUE) {
-  p_values <- c()
-  f_values <- c()
+#' \dontrun{
+#' results <- permanova_average(results_adonis, averagef = "median", plot = TRUE)
+#' }
+permanova_average <- function(
+    results_adonis,
+    averagef = "median",
+    plot = TRUE) {
+  allowed.methods <- c("median", "mean", "min", "max")
 
-  # Try normal for-loop
-  for (res in results_adonis) {
-    p_values <- c(p_values, res$`Pr(>F)`[1]) # Extract p-values
-    f_values <- c(f_values, res$F[1]) # Extract pseudo-F
+  if (!averagef %in% allowed.methods) {
+    stop(
+      "Non-supported average function specified. Allowed methods are one of: ",
+      paste(allowed.methods, collapse = ", ")
+    )
   }
-  pseudoF_IQR <- quantile(f_values, probs = c(0.25, 0.75))
-  p_Cauchy <- acat(p_values)
+  average.fun <- match.fun(averagef)
+  # Initialise the vectors for F and p-values
+  pvals <- c()
+  fvals <- c()
 
-  # Results dataframe with pseudo-F median and IQR and the combined Cauchy p-value
-  res <- data.frame(list(
-    pseudoF_median = round(median(f_values), 1),
-    pseudoF_IQR = paste(round(pseudoF_IQR[1], 1), "-", round(pseudoF_IQR[2], 1)),
-    p_Cauchy = p_Cauchy
-  ))
+  # Extract F and p-values from the adonis2 output list
+  for (res in results_adonis) {
+    pvals <- c(pvals, res$`Pr(>F)`[1]) # Extract p-values
+    fvals <- c(fvals, res$F[1]) # Extract pseudo-F
+  }
+  # Calculate the F IQR (25th-75th percentile)
+  F.IQR <- quantile(fvals, probs = c(0.25, 0.75))
 
-  out <- list(results = res)
-  base::attr(out, which = "pseudoF_values") <- f_values
-  base::attr(out, which = "p_values") <- p_values
+  # Perform the Aggregated Cauchy Association Test (ACAT)
+  p.Cauchy <- acat(pvals)
+
+  # Create an output named list with the results
+  out <- list(
+    F = round(average.fun(fvals), 1),
+    F.IQR = paste(round(F.IQR[1], 1), "-", round(F.IQR[2], 1)),
+    p = average.fun(pvals),
+    p.Cauchy = p.Cauchy,
+    Fvals = fvals,
+    pvals = pvals
+  )
+
+  names(out)[c(1, 3)] <- c(paste0("F.", averagef), paste0("p.", averagef))
 
   if (plot == TRUE) {
-    boxplot(f_values,
-      main = "Distribution of PERMANOVA pseudo-F across rarefactions",
-      ylab = "pseudo-F statistic"
-    )
-    boxplot(p_values, ylab = "p-value", main = "Distribution of p-values with Cauchy aggregation", col = "white")
-    abline(h = p_Cauchy, col = "red", lwd = 2, lty = 2)
-    legend("topright",
-      legend = paste("Cauchy p =", signif(p_Cauchy, 3)),
-      col = "red", lty = 2, lwd = 2
-    )
+# ggplot2-based plotting
+    library(ggplot2)
+
+    # Pseudo-F boxplot
+    df_f <- data.frame(statistic = fvals)
+    p1 <- ggplot(df_f, aes(x = "", y = statistic)) +
+      geom_boxplot(fill = "gray", width = 0.4) +
+      labs(
+        x = NULL, y = "pseudo-F statistic"
+      ) +
+      theme_classic() +
+      theme(axis.text.x = element_blank())
+
+    print(p1)
+
+    # p-value boxplot with ACAT line
+    df_p <- data.frame(p_value = pvals)
+    p2 <- ggplot(df_p, aes(x = "", y = p_value)) +
+      geom_boxplot(fill = "white", width = 0.4) +
+      geom_hline(yintercept = p.Cauchy, color = "red", linetype = "dashed", size = 0.8) +
+      labs(
+        x = NULL, y = "p-value"
+      ) +
+      annotate(
+        "text", x = 0, y = 0,
+        label = paste("Cauchy p =", signif(p.Cauchy, 3)),
+        color = "red", vjust = -0.5, hjust = -0.5
+      ) +
+      theme_classic() +
+      theme(axis.text.x = element_blank())
+
+    print(p2)
   }
   return(out)
 }
+
 # MISCELLANEOUS ================================================================
-# Aggregated Cauchy Association test (ACAT)
-#' @describeIn rarefy_multiple #' Aggregated Cauchy Association Test (ACAT) for P-value Combination
-#'
+#' @title Aggregated Cauchy Association Test (ACAT)
 #' @description
-#' Combines multiple p-values into a single aggregated p-value using the Aggregated Cauchy Association Test (ACAT).
-#'
-#' @param p_values Numeric vector of p-values to combine. All values must be strictly between 0 and 1.
-#'
-#' @return
-#' A single aggregated p-value (numeric).
+#' The Aggregated Cauchy Association Test (ACAT), also known as the Cauchy Combination Test (CCT), combines p-values that may be arbitrarily dependent into a single aggregated p-value.
+#' The test statistic is defined as a weighted sum of Cauchy transformations of individual p-values.
+#' Under arbitrary dependency structures, the tail of the null distribution of the test statistic can be approximated by a Cauchy distribution, enabling p-value calculation.
+#' @param pvals Numeric vector of p-values to combine. All values must be strictly between 0 and 1.
+#' @return A single aggregated p-value (numeric).
+#' @references
+#' Liu, Y., & Xie, J. (2019).
+#' Cauchy Combination Test: A Powerful Test With Analytic p-Value Calculation Under Arbitrary Dependency Structures.
+#' \emph{Journal of the American Statistical Association}, \bold{115}(529), 393–402.
+#' \doi{10.1080/01621459.2018.1554485}
 #' @export
-#'
 #' @examples
 #' combined_p <- acat(c(0.01, 0.03, 0.2))
-acat <- function(p_values) {
+acat <- function(pvals) {
   # Check: all p-values should be in (0, 1)
-  if (any(p_values <= 0 | p_values >= 1)) {
+  if (any(pvals <= 0 | pvals >= 1)) {
     stop("All p-values must be strictly between 0 and 1.")
   }
 
   # Number of p-values
-  K <- length(p_values)
+  K <- length(pvals)
 
   weights <- rep(1 / K, K)
 
   # Transform each p-value to Cauchy scale
-  tans <- tan((0.5 - p_values) * pi)
+  tans <- tan((0.5 - pvals) * pi)
 
   # Weighted sum
   T <- sum(weights * tans)
 
   # Compute combined p-value
-  p_combined <- 0.5 - atan(T) / pi
-  return(p_combined)
+  p.Cauchy <- 0.5 - atan(T) / pi
+  return(p.Cauchy)
 }
