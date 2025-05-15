@@ -4,7 +4,7 @@
 #'
 #' @section Functions:
 #' - `run_ancombc2()`: Runs ANCOM-BC2 analysis on microbiome data.
-#' - `display_results()`: Displays the results in an interactive table.
+#' - `display_results()`: Displays the results in an optionally interactive table.
 #'
 #' @name ancombc2_wrappers
 NULL
@@ -127,74 +127,65 @@ run_ancombc2 <- function(ps, params) {
   )
 }
 
-#' Display ANCOM-BC2 Results
+#' Display ANCOM-BC2 Results as Tables or Data Frames
 #'
-#' This function presents the results of an ANCOM-BC2 analysis in an interactive table.
+#' Presents ANCOM-BC2 results as interactive tables (with DT) or plain data frames.
 #'
-#' @param results The output object from `run_ancombc2` (ANCOMBC::ancombc2 result).
-#' @param analyses A character vector specifying which results to display.
-#'   Possible values include "global", "pairwise", "dunnett", and "trend".
-#'   If NULL, the primary analysis results are displayed.
-#'
-#' @return A `DT::datatable` object displaying the selected results.
-#'
+#' @param results The output object from `ANCOMBC::ancombc2()`.
+#' @param analyses Character vector: which results to display. Options: "global", "pairwise", "dunnett", "trend". Default NULL (primary only).
+#' @param html Logical. If TRUE (default), returns DT::datatable for the primary analysis; if FALSE, returns data frames.
+#' @return Named list of tables (either DT::datatable or data.frame for primary analysis).
 #' @examples
 #' \dontrun{
-#' display_results(result, analyses = c("global", "pairwise"))
+#' # In R Markdown:
+#' tabs <- display_ancombc2_results(ancombc2_output, analyses = c("global", "pairwise"))
+#' tabs$primary # Interactive DT table
+#' tabs$global # Plain data frame
+#' tabs$pairwise # Plain data frame
 #' }
-#'
 #' @export
 display_ancombc2_results <- function(results, analyses = NULL, html = TRUE) {
-  # Helper functions remain the same
   get_result <- function(results, result_name) {
     switch(result_name,
-      "global" = results$res_global,
+      "global"   = results$res_global,
       "pairwise" = results$res_pair,
-      "dunnett" = results$dunn,
-      "trend" = results$res_trend,
+      "dunnett"  = results$dunn,
+      "trend"    = results$res_trend,
       NULL
     )
   }
-
   get_caption <- function(result_name) {
     switch(result_name,
-      "global" = "ANCOM-BC2 Global Test",
+      "global"   = "ANCOM-BC2 Global Test",
       "pairwise" = "ANCOM-BC2 Pairwise Comparison",
-      "dunnett" = "ANCOM-BC2 Dunnett's Test",
-      "trend" = "ANCOM-BC2 Trend Analysis",
-      "primary" = "ANCOM-BC2 Primary Analysis"
+      "dunnett"  = "ANCOM-BC2 Dunnett's Test",
+      "trend"    = "ANCOM-BC2 Trend Analysis",
+      "primary"  = "ANCOM-BC2 Primary Analysis"
     )
   }
-
-  # Process primary results
-  numeric_cols <- sapply(results$res, is.numeric)
-  results$res[numeric_cols] <- lapply(results$res[numeric_cols], function(x) round(x, 3))
-
-  out <- list()
-  if (html == TRUE) {
-    out$primary <- DT::datatable(results$res, caption = get_caption("primary"))
-  } else {
-    out$primary <- results$res
+  process_table <- function(df, caption, as_datatable = FALSE) {
+    numeric_cols <- sapply(df, is.numeric)
+    df[numeric_cols] <- lapply(df[numeric_cols], signif, 3)
+    if (as_datatable) {
+      DT::datatable(df, caption = caption, options = list(scrollX = TRUE, dom = "ltipr"))
+    } else {
+      df
+    }
   }
-  # Process selected additional results
+  out <- list()
+  # Primary as DT::datatable
+  out$primary <- process_table(results$res, get_caption("primary"), as_datatable = TRUE)
+  # Others as plain data frames
   valid <- c("global", "pairwise", "dunnett", "trend")
   if (!is.null(analyses)) {
     for (result in analyses) {
       if (result %in% valid) {
         temp_res <- get_result(results, result)
-        numeric_cols <- sapply(temp_res, is.numeric)
-        temp_res[numeric_cols] <- lapply(temp_res[numeric_cols], function(x) round(x, 3))
-        out[[result]] <- if (!html == TRUE) {
-          temp_res
-        } else {
-          DT::datatable(temp_res, caption = get_caption(result))
-        }
+        out[[result]] <- process_table(temp_res, get_caption(result), as_datatable = FALSE)
       } else {
-        stop(paste("Error:", result, "not in", valid))
+        stop("Invalid analysis: ", result, ". Valid options: ", paste(valid, collapse = ", "))
       }
     }
   }
-
-  # Return all DT objects in a list
   return(out)
 }

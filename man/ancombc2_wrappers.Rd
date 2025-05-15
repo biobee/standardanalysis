@@ -9,6 +9,6 @@ Functions for running ANCOM-BC2 analyses and displaying results.
 \section{Functions}{
 
 - `run_ancombc2()`: Runs ANCOM-BC2 analysis on microbiome data.
-- `display_results()`: Displays the results in an interactive table.
+- `display_results()`: Displays the results in an optionally interactive table.
 }
 

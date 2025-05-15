@@ -2,26 +2,29 @@
 % Please edit documentation in R/ancombc2.R
 \name{display_ancombc2_results}
 \alias{display_ancombc2_results}
-\title{Display ANCOM-BC2 Results}
+\title{Display ANCOM-BC2 Results as Tables or Data Frames}
 \usage{
 display_ancombc2_results(results, analyses = NULL, html = TRUE)
 }
 \arguments{
-\item{results}{The output object from `run_ancombc2` (ANCOMBC::ancombc2 result).}
+\item{results}{The output object from `ANCOMBC::ancombc2()`.}
 
-\item{analyses}{A character vector specifying which results to display.
-Possible values include "global", "pairwise", "dunnett", and "trend".
-If NULL, the primary analysis results are displayed.}
+\item{analyses}{Character vector: which results to display. Options: "global", "pairwise", "dunnett", "trend". Default NULL (primary only).}
+
+\item{html}{Logical. If TRUE (default), returns DT::datatable for the primary analysis; if FALSE, returns data frames.}
 }
 \value{
-A `DT::datatable` object displaying the selected results.
+Named list of tables (either DT::datatable or data.frame for primary analysis).
 }
 \description{
-This function presents the results of an ANCOM-BC2 analysis in an interactive table.
+Presents ANCOM-BC2 results as interactive tables (with DT) or plain data frames.
 }
 \examples{
 \dontrun{
-display_results(result, analyses = c("global", "pairwise"))
+# In R Markdown:
+tabs <- display_ancombc2_results(ancombc2_output, analyses = c("global", "pairwise"))
+tabs$primary # Interactive DT table
+tabs$global # Plain data frame
+tabs$pairwise # Plain data frame
 }
-
 }
