@@ -18,12 +18,12 @@ knitr::opts_chunk$set(
 ```
 ## Introduction
 
-This tutorial demonstrates how to use the `standardanalysis` package in R for comprehensive microbiome data analysis. `standardanalysis` provides a range of functions to streamline your workflow, from data import and preprocessing to diversity analysis, differential abundance testing, and statistical modeling.
+This tutorial demonstrates how to use the `standardanalysis` package in R for routine microbiome data analysis. `standardanalysis` provides a range of functions to streamline your workflow, from data import and preprocessing to diversity analysis, differential abundance testing, and statistical modeling.
 
-The package offers the following capabilities:
+The package offers the following functions:
 
 - **Data Import and Preprocessing:**
-  - `import_data`: Import microbiome data from BIOM format and mapping files.
+  - `import_data`: Import BIOM and mapping file and merge into a `phyloseq` object.
   - `clean_taxonomy`: Clean and standardize taxonomic assignments.
   - `remove_unwanted_samples`: Remove unwanted samples based on sample IDs.
   - `rarefy_single`: Perform single rarefaction (subsampling) of a phyloseq object.
@@ -43,6 +43,7 @@ The package offers the following capabilities:
 
 - **Community Composition and Differential Abundance:**
   - `run_ancombc2`: Run differential abundance analysis using ANCOMBC-2.
+  - `display_results`: Display ANCOMBC-2 in optionally interactive tables.
 
 Most functions in `standardanalysis` (except `permanova_average` and differential abundance analysis functions) support **parallel** execution using the [`future`](https://future.futureverse.org/) framework. This allows you to speed up computation by distributing the load across multiple CPU cores or nodes, which is especially useful for large datasets or high-performance computing (HPC) environments.
 
@@ -70,7 +71,7 @@ library(standardanalysis)
 To take advantage of parallel processing, set up your parallel backend using the `future` package. For example, to use all available cores on your machine:
 
 ```{r}
-future::plan("multisession", workers = parallel::detectCores())
+future::plan("multisession", workers = parallel::detectCores() -1)
 ```
 
 You can control the number of parallel workers with the `workers` argument (or `mc.cores` for some backends). For more information on available parallelization strategies and how to choose the best plan for your system (e.g., multicore, cluster, etc.), see the [future plan documentation](https://future.futureverse.org/reference/plan.html).
@@ -374,7 +375,7 @@ x.all_int <- x.all_sign[-c(1, 2, 5:9, 13)]
 print(x.all_int[order(abs(x.all_int$effect), decreasing = TRUE), ])
 ```
 
-# ANCOM2
+# ANCOM-BC2
 ```{r, eval = F}
 params <- list(
   # Model formula parameters
