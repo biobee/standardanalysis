@@ -52,7 +52,7 @@ The `params` list should contain the following elements:
 }
 \examples{
 \dontrun{
-result <- run_ancombc2(ps, params)
+result <- run_ancombc2(ps, ancombc2_params)
 }
 
 }

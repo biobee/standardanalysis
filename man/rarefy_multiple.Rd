@@ -32,7 +32,7 @@ multiple_test_alpha(
   alpha_div,
   variable,
   method = "wilcox.test",
-  pair.by = NULL
+  pair_by = NULL
 )
 
 multiple_permanova(
@@ -75,7 +75,7 @@ Default (and recommended) is \code{"median"}.}
 
 \item{method}{Character. which test should be performed.}
 
-\item{pair.by}{Character. In case of paired analysis, which is variable is the data paired on.}
+\item{pair_by}{Character. In case of paired analysis, which is variable is the data paired on.}
 
 \item{distance}{Character. Distance metric to use (e.g., \code{"bray"}, \code{"aitchison"}).}
 
@@ -166,7 +166,7 @@ It computes the summary statistic (median, mean, min, or max) of the PERMANOVA p
 \itemize{
 \item \code{rarefy_multiple()}: Creating multiple subsampled (rarefied) \code{phyloseq} objects
 
-\item \code{calculate_alpha_df()}: Estimating alpha-diversities
+\item \code{calculate_alpha_df()}: Calculating alpha-diversities
 
 \item \code{calculate_average_alpha_ps()}: Calculating of the averages of alpha-diversities
 
@@ -181,9 +181,10 @@ It computes the summary statistic (median, mean, min, or max) of the PERMANOVA p
 pseq_list <- rarefy_multiple(pseq, sample.size = 8000, iter = 100)
 alpha_df <- calculate_alpha_df(pseq_list, measures = c("Shannon", "Simpson", "Chao1"))
 average_alphas <- calculate_average_alpha_ps(alpha_df, alpha_div = c("Shannon", "Simpson"), averagef = "min")
-alpha_pvals <- multiple_test_alpha(alpha_df, pseq, alpha_div = "Shannon", variable = "HealthStatus", method = "wilcoxon.test", pair.by = "SubjectID")
+alpha_pvals <- multiple_test_alpha(alpha_df, pseq, alpha_div = "Shannon", variable = "HealthStatus", method = "wilcoxon.test", pair_by = "SubjectID")
 median(alpha_pvals)
 permanova_results <- multiple_permanova(pseq_list, distance = "aitchison", variable = "Source", permutations = 9999, longit = "SubjectID")
+
 \dontrun{
 results <- permanova_average(results_adonis, averagef = "median", plot = TRUE)
 }

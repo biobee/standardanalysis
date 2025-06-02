@@ -38,7 +38,7 @@ The package offers the following functions:
 
   - **Visualization:**
   - `barplot_abundance`: Generate stacked barplots of taxonomic abundances.
-  - `make_pca`: Perform Principal Coordinates Analysis (PCoA) and generate ordination plots.
+  - `make_pca`: Perform Principal Component Analysis (PCA) and generate ordination plots.
   - `make_heatmap`: Generate heatmaps of microbial taxa.
 
 - **Community Composition and Differential Abundance:**
@@ -261,7 +261,7 @@ barplot_abundance(
 ```
 
 ## Performing a PCA, and making of ordination plot.
-Samples are coloured by treatment variable, default transformation is center log ratio (CLR). Pseudo-count (shift) is + 1 for all log-transformations
+Samples are coloured by treatment variable, default transformation is centered log ratio (CLR). Pseudo-count (shift) is + 1 for all log-transformations
 ```{r}
 # Optional to also give a different shape to points based on a variable: shape = "My_other_variable"
 make_pca(ps,

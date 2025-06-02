@@ -19,6 +19,7 @@ Under arbitrary dependency structures, the tail of the null distribution of the 
 }
 \examples{
 combined_p <- acat(c(0.01, 0.03, 0.2))
+
 }
 \references{
 Liu, Y., & Xie, J. (2019).

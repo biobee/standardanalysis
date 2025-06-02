@@ -537,8 +537,8 @@ permanova_average <- function(
 
   # Create an output named list with the results
   out <- list(
-    F = round(average.fun(fvals), 1),
-    F.IQR = paste(round(F.IQR[1], 1), "-", round(F.IQR[2], 1)),
+    F = round(average.fun(fvals), 2),
+    F.IQR = paste(round(F.IQR[1], 2), "-", round(F.IQR[2], 2)),
     p = average.fun(pvals),
     p.Cauchy = p.Cauchy,
     Fvals = fvals,
@@ -548,37 +548,32 @@ permanova_average <- function(
   names(out)[c(1, 3)] <- c(paste0("F.", averagef), paste0("p.", averagef))
 
   if (plot == TRUE) {
-    # ggplot2-based plotting
-    library(ggplot2)
-
     # Pseudo-F boxplot
     df_f <- data.frame(statistic = fvals)
-    p1 <- ggplot(df_f, aes(x = "", y = statistic)) +
-      geom_boxplot(fill = "gray", width = 0.4) +
-      labs(
+    p1 <- ggplot2::ggplot(df_f, ggplot2::aes(x = "", y = statistic)) +
+      ggplot2::geom_boxplot(fill = "gray", width = 0.4) +
+      ggplot2::labs(
         x = NULL,
         y = "pseudo-F statistic"
       ) +
-      theme_classic() +
-      theme(axis.text.x = element_blank())
-
-    print(p1)
+      ggplot2::theme_classic() +
+      ggplot2::theme(axis.text.x = ggplot2::element_blank())
 
     # p-value boxplot with ACAT line
     df_p <- data.frame(p_value = pvals)
-    p2 <- ggplot(df_p, aes(x = "", y = p_value)) +
-      geom_boxplot(fill = "white", width = 0.4) +
-      geom_hline(
+    p2 <- ggplot2::ggplot(df_p, ggplot2::aes(x = "", y = p_value)) +
+      ggplot2::geom_boxplot(fill = "white", width = 0.4) +
+      ggplot2::geom_hline(
         yintercept = p.Cauchy,
         color = "red",
         linetype = "dashed",
         size = 0.8
       ) +
-      labs(
+      ggplot2::labs(
         x = NULL,
         y = "p-value"
       ) +
-      annotate(
+      ggplot2::annotate(
         "text",
         x = 0,
         y = 0,
@@ -587,10 +582,9 @@ permanova_average <- function(
         vjust = -0.5,
         hjust = -0.5
       ) +
-      theme_classic() +
-      theme(axis.text.x = element_blank())
-
-    print(p2)
+      ggplot2::theme_classic() +
+      ggplot2::theme(axis.text.x = ggplot2::element_blank())
+    out$plots <- list(f = p1, p = p2)
   }
   return(out)
 }
@@ -611,6 +605,7 @@ permanova_average <- function(
 #' @export
 #' @examples
 #' combined_p <- acat(c(0.01, 0.03, 0.2))
+#' 
 acat <- function(pvals) {
   # Check: all p-values should be in (0, 1)
   if (any(pvals <= 0 | pvals >= 1)) {
