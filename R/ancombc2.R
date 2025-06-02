@@ -4,12 +4,11 @@
 #'
 #' @section Functions:
 #' - `run_ancombc2()`: Runs ANCOM-BC2 analysis on microbiome data.
-#' - `display_results()`: Displays the results in an optionally interactive table.
+#' - `display_ancombc2_results()`: Displays the results in an optionally interactive table.
 #'
 #' @name ancombc2_wrappers
-NULL
 #' @export
-params <- list(
+ancombc2_params <- list(
   # Model formula parameters
   fixed_terms = "Timepoint + SubjectID", # Fixed effects formula
   random_terms = "(Timepoint | SubjectID)", # Random effects formula
@@ -89,7 +88,7 @@ params <- list(
 #'
 #' @examples
 #' \dontrun{
-#' result <- run_ancombc2(ps, params)
+#' result <- run_ancombc2(ps, ancombc2_params)
 #' }
 #'
 #' @export
@@ -154,6 +153,7 @@ display_ancombc2_results <- function(results, analyses = NULL, html = TRUE) {
       NULL
     )
   }
+
   get_caption <- function(result_name) {
     switch(result_name,
       "global"   = "ANCOM-BC2 Global Test",
@@ -163,6 +163,7 @@ display_ancombc2_results <- function(results, analyses = NULL, html = TRUE) {
       "primary"  = "ANCOM-BC2 Primary Analysis"
     )
   }
+  
   process_table <- function(df, caption, as_datatable = FALSE) {
     numeric_cols <- sapply(df, is.numeric)
     df[numeric_cols] <- lapply(df[numeric_cols], signif, 3)
@@ -172,16 +173,18 @@ display_ancombc2_results <- function(results, analyses = NULL, html = TRUE) {
       df
     }
   }
+
   out <- list()
   # Primary as DT::datatable
-  out$primary <- process_table(results$res, get_caption("primary"), as_datatable = TRUE)
-  # Others as plain data frames
+  out$primary <- process_table(results$res, get_caption("primary"), as_datatable = html)
+  
+  # Others optionally as plain data frames
   valid <- c("global", "pairwise", "dunnett", "trend")
   if (!is.null(analyses)) {
     for (result in analyses) {
       if (result %in% valid) {
         temp_res <- get_result(results, result)
-        out[[result]] <- process_table(temp_res, get_caption(result), as_datatable = FALSE)
+        out[[result]] <- process_table(temp_res, get_caption(result), as_datatable = html)
       } else {
         stop("Invalid analysis: ", result, ". Valid options: ", paste(valid, collapse = ", "))
       }

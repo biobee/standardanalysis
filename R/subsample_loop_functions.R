@@ -49,17 +49,21 @@
 #' @export
 #' @examples pseq_list <- rarefy_multiple(pseq, sample.size = 8000, iter = 100)
 # based on https://github.com/vmikk/metagMisc/blob/master/R/phyloseq_mult_raref.R
-rarefy_multiple <- function(pseq,
-                            sample.size = NULL,
-                            iter = 10,
-                            replace = FALSE,
-                            seeds = NULL,
-                            ...) {
+rarefy_multiple <- function(
+  pseq,
+  sample.size = NULL,
+  iter = 10,
+  replace = FALSE,
+  seeds = NULL,
+  ...
+) {
   # Sanity check for the random number generator
   if (!is.null(seeds)) {
     if (length(seeds) != iter) {
-      stop("Error: lenght of 'seeds' should be the same
-            as the number of iterations.\n")
+      stop(
+        "Error: lenght of 'seeds' should be the same
+            as the number of iterations.\n"
+      )
     }
     if (length(seeds) != length(unique(seeds))) {
       warning(
@@ -82,16 +86,21 @@ rarefy_multiple <- function(pseq,
     seeds <- seq(1, iter)
   }
   # Do multiple rarefaction in parallel
-  res_apply <- future.apply::future_lapply(seeds, function(ps) {
-    phyloseq::rarefy_even_depth(
-      pseq,
-      sample.size = sample.size,
-      rngseed = ps,
-      replace = replace,
-      verbose = FALSE, ...
-    )
-  }, future.seed = TRUE) # whether to generate seeds internally for reproducibility
-
+  res_apply <- future.apply::future_lapply(
+    seeds,
+    function(ps) {
+      phyloseq::rarefy_even_depth(
+        pseq,
+        sample.size = sample.size,
+        rngseed = ps,
+        replace = replace,
+        verbose = FALSE,
+        ...
+      )
+    },
+    ...,
+    future.seed = TRUE
+  ) # whether to generate seeds internally for reproducibility
 
   # Add rarefaction parameters as attributes to the resulting list
   base::attr(res_apply, which = "rarefaction_depth") <- sample.size
@@ -102,7 +111,7 @@ rarefy_multiple <- function(pseq,
 
 # ==============================================================================
 
-#' @describeIn rarefy_multiple Estimating alpha-diversities
+#' @describeIn rarefy_multiple Calculating alpha-diversities
 #' @param pseq_list (2) The list of \code{phyloseq} objects received from rarefy_multiple function.
 #' @param measures Character. The alpha-diversity measure(s) you want to compute.
 #' @return (2) A \code{data.frame} with the alpha-diversities requested for each \code{phyloseq} object.
@@ -111,15 +120,18 @@ rarefy_multiple <- function(pseq,
 #' @export
 #' @examples alpha_df <- calculate_alpha_df(pseq_list, measures = c("Shannon", "Simpson", "Chao1"))
 calculate_alpha_df <- function(
-    pseq_list,
-    measures = NULL) {
+  pseq_list,
+  measures = NULL
+) {
   alpha_df <- data.frame()
 
-  # Estimate alpha diversity in parallel
-  alphas <- future.apply::future_lapply(pseq_list, function(pseq) {
-    phyloseq::estimate_richness(pseq, measures = measures)
-  },
-  future.seed = TRUE
+  # Calculate alpha diversity in parallel
+  alphas <- future.apply::future_lapply(
+    pseq_list,
+    function(pseq) {
+      phyloseq::estimate_richness(pseq, measures = measures)
+    },
+    future.seed = TRUE
   )
 
   # Stack (row-wise) each element of the list in a dataframe
@@ -156,9 +168,11 @@ calculate_alpha_df <- function(
 #' (3) \code{calculate_average_alpha_ps} summarizes alpha-diversity values across multiple rarefactions for each sample. For each alpha-diversity metric, it computes the specified summary statistic (median, mean, min, or max) across all rarefied datasets. The output is a data frame where each row corresponds to a sample and each column to a summarized diversity measure. This facilitates comparison of central tendencies or ranges of diversity estimates across samples.
 #' @export
 #' @examples average_alphas <- calculate_average_alpha_ps(alpha_df, alpha_div = c("Shannon", "Simpson"), averagef = "min")
-calculate_average_alpha_ps <- function(alpha_dataframe,
-                                       alpha_div = NULL,
-                                       averagef = "median") {
+calculate_average_alpha_ps <- function(
+  alpha_dataframe,
+  alpha_div = NULL,
+  averagef = "median"
+) {
   # Catch wrong method argument
   allowed.methods <- c("median", "mean", "min", "max")
   if (!averagef %in% allowed.methods) {
@@ -183,7 +197,11 @@ calculate_average_alpha_ps <- function(alpha_dataframe,
   }
 
   # Create a dataframe with the averages, grouped by X.SampleID
-  avg_df <- aggregate(. ~ X.SampleID, data = alpha_dataframe[, c("X.SampleID", alpha_div)], FUN = average.fun)
+  avg_df <- aggregate(
+    . ~ X.SampleID,
+    data = alpha_dataframe[, c("X.SampleID", alpha_div)],
+    FUN = average.fun
+  )
 
   # Set column names based on averaging function used and alpha diversity used
   names(avg_df)[-1] <- paste(averagef, alpha_div, sep = ".")
@@ -195,7 +213,6 @@ calculate_average_alpha_ps <- function(alpha_dataframe,
 
 # utils::globalVariables("X.SampleID")
 
-
 # Alpha div test ===============================================================
 
 #' @describeIn rarefy_multiple Testing of alpha-diversities between groups
@@ -204,19 +221,21 @@ calculate_average_alpha_ps <- function(alpha_dataframe,
 #' @param alpha_div Character. The alpha-diversity measures that you want to test.
 #' @param variable Character. The variable in the metadata with the groups that you want to test.
 #' @param method Character. which test should be performed.
-#' @param pair.by Character. In case of paired analysis, which is variable is the data paired on.
+#' @param pair_by Character. In case of paired analysis, which is variable is the data paired on.
 #' @return (4) A vector with the p-values for each \code{phyloseq} object.
 #' @details
 #' (4) \code{multiple_test_alpha} tests for differences in alpha-diversity between groups, separately for each rarefied dataset. Supported statistical tests include t-test, Wilcoxon rank-sum, Kruskal-Wallis, and Friedman test, with optional support for paired data. For each rarefied dataset, the appropriate test is applied to compare groups defined by a metadata variable. The output is a vector of p-values, one for each rarefaction, which can be aggregated or visualized to assess the robustness of group differences to subsampling variation.
 #' @export
-#' @examples alpha_pvals <- multiple_test_alpha(alpha_df, pseq, alpha_div = "Shannon", variable = "HealthStatus", method = "wilcoxon.test", pair.by = "SubjectID")
+#' @examples alpha_pvals <- multiple_test_alpha(alpha_df, pseq, alpha_div = "Shannon", variable = "HealthStatus", method = "wilcoxon.test", pair_by = "SubjectID")
 #' @examples median(alpha_pvals)
-multiple_test_alpha <- function(alpha_dataframe,
-                                pseq, # one pseq object with same metadata as in list
-                                alpha_div,
-                                variable,
-                                method = "wilcox.test",
-                                pair.by = NULL) {
+multiple_test_alpha <- function(
+  alpha_dataframe,
+  pseq, # one pseq object with same metadata as in list
+  alpha_div,
+  variable,
+  method = "wilcox.test",
+  pair_by = NULL
+) {
   # Catch wrong method call
   allowed.methods <- c("t.test", "wilcox.test", "kruskal.test", "friedman.test")
   if (!(method %in% allowed.methods)) {
@@ -230,7 +249,7 @@ multiple_test_alpha <- function(alpha_dataframe,
   meta_df <- microbiome::meta(pseq)
 
   # Are all requested variables in metadata?
-  if (!all(c(variable, pair.by) %in% names(meta_df))) {
+  if (!all(c(variable, pair_by) %in% names(meta_df))) {
     stop_str_meta <- "At least one of your variables is not in the metadata.\n"
     stop(stop_str_meta)
   }
@@ -240,13 +259,17 @@ multiple_test_alpha <- function(alpha_dataframe,
     stop(stop_str_alpha)
   }
   # Can't use t-test / wilcox with more than 2 groups
-  if (length(unique(meta_df[[variable]])) > 2 &&
-    method %in% c("t.test", "wilcox.test")) {
-    stop("T.test or wilcoxon can only handle 2 groups.
-         Use kruskal.test for non-paired and friedman.test for paired data.\n")
+  if (
+    length(unique(meta_df[[variable]])) > 2 &&
+      method %in% c("t.test", "wilcox.test")
+  ) {
+    stop(
+      "T.test or wilcoxon can only handle 2 groups.
+         Use kruskal.test for non-paired and friedman.test for paired data.\n"
+    )
   }
   if (method == "kruskal.test") {
-    if (!is.null(pair.by)) {
+    if (!is.null(pair_by)) {
       stop("Kruskal-Wallis cannot test in a paired manner.\n")
     }
     test.func <- .test_kruskal
@@ -255,10 +278,10 @@ multiple_test_alpha <- function(alpha_dataframe,
   }
 
   paired <- FALSE
-  if (!is.null(pair.by)) {
-    ID <- pair.by
-    if (length(pair.by) != 1) {
-      stop("Provide only 1 pair.by!\n")
+  if (!is.null(pair_by)) {
+    ID <- pair_by
+    if (length(pair_by) != 1) {
+      stop("Provide only 1 pair_by!\n")
     }
     # Make sure all data are paired and ordered on ID variable
     SID_count <- table(microbiome::meta(pseq)[[X.SampleID]])
@@ -273,26 +296,38 @@ multiple_test_alpha <- function(alpha_dataframe,
 
     # Sort the dataframe on ID and grouping variable
     # Only complete pairs are left hereafter
-    sort_by <- c(pair.by, variable)
+    sort_by <- c(pair_by, variable)
     meta_df <- ss_meta[do.call(order, ss_meta[sort_by]), ]
     # Used prune_samples as subset_samples gave unexplained error with passing on sample_names argument
     pseq <-
-      phyloseq::prune_samples(phyloseq::sample_names(pseq) %in% rownames(meta_df), pseq)
+      phyloseq::prune_samples(
+        phyloseq::sample_names(pseq) %in% rownames(meta_df),
+        pseq
+      )
 
     paired <- TRUE
   }
   # Filter data from alpha_dataframe based on pseq because pairing might have removed unpaired samples;
   # We do not rely on nrow() but on samples
   # Note: this filtering HAS to be done after pairing samples in case of a paired test
-  if (!all(phyloseq::sample_names(pseq) %in% unique(alpha_dataframe$X.SampleID))) {
-    stop("Sample names in your alpha div dataframe and pseq object do not match.\n")
-  } else if (length(unique(alpha_dataframe$X.SampleID)) != phyloseq::nsamples(pseq)) {
+  if (
+    !all(phyloseq::sample_names(pseq) %in% unique(alpha_dataframe$X.SampleID))
+  ) {
+    stop(
+      "Sample names in your alpha div dataframe and pseq object do not match.\n"
+    )
+  } else if (
+    length(unique(alpha_dataframe$X.SampleID)) != phyloseq::nsamples(pseq)
+  ) {
     warning(
       "Your alpha div dataframe and pseq object do NOT contain the same number of samples.\n",
       "Since all samples from pseq are in alpha_frame, we will select the pseq samples from alpha_dataframe.\n",
       "If you are doing paired-testing this is expected.\n"
     )
-    alpha_dataframe <- subset(alpha_dataframe, X.SampleID %in% phyloseq::sample_names(pseq))
+    alpha_dataframe <- subset(
+      alpha_dataframe,
+      X.SampleID %in% phyloseq::sample_names(pseq)
+    )
   }
   # Set the splitting variable as factor
   if (!is.factor(meta_df[[variable]])) {
@@ -301,20 +336,27 @@ multiple_test_alpha <- function(alpha_dataframe,
 
   # Perform testing on pseq objects in parallel
   pvals <- future.apply::future_lapply(
-    seq(1, nrow(alpha_dataframe),
-      by = nrow(meta_df)
-    ), function(pseq) {
+    seq(1, nrow(alpha_dataframe), by = nrow(meta_df)),
+    function(pseq) {
       # Grab one pseq set, and do test on it
-      values_single_ps <- alpha_dataframe[c(pseq:(pseq + nrow(meta_df) - 1)), alpha_div]
+      values_single_ps <- alpha_dataframe[
+        c(pseq:(pseq + nrow(meta_df) - 1)),
+        alpha_div
+      ]
 
       # Always use meta[[variable]] here as meta has been sorted on the pairing
       # If a paired t-test or Wilcoxon signed rank test are used, subset samples based on unique variable values
       if (paired == TRUE & method %in% c("t.test", "wilcox.test")) {
         test.func(
           Pair(
-            values_single_ps[meta_df[[variable]] == unique(meta_df[[variable]])[1]],
-            values_single_ps[meta_df[[variable]] == unique(meta_df[[variable]])[2]]
-          ) ~ 1,
+            values_single_ps[
+              meta_df[[variable]] == unique(meta_df[[variable]])[1]
+            ],
+            values_single_ps[
+              meta_df[[variable]] == unique(meta_df[[variable]])[2]
+            ]
+          ) ~
+            1,
           data = meta_df,
           variable = variable,
         )$p.value
@@ -342,7 +384,11 @@ multiple_test_alpha <- function(alpha_dataframe,
 .test_friedman <- function(formula, ...) {
   args <- list(...)
   lhs <- deparse(formula[[2]])
-  stats::friedman.test(args[[lhs]], args$data[[args$variable]], args$data[[args$ID]])
+  stats::friedman.test(
+    args[[lhs]],
+    args$data[[args$variable]],
+    args$data[[args$ID]]
+  )
 }
 
 # PERMANOVA ====================================================================
@@ -361,18 +407,23 @@ multiple_test_alpha <- function(alpha_dataframe,
 #' @export
 #' @examples
 #' permanova_results <- multiple_permanova(pseq_list, distance = "aitchison", variable = "Source", permutations = 9999, longit = "SubjectID")
-multiple_permanova <- function(pseq_list,
-                               distance,
-                               variable,
-                               permutations,
-                               pseudocount = 1,
-                               ps_ref = NULL,
-                               longit = NULL) {
+#' 
+multiple_permanova <- function(
+  pseq_list,
+  distance,
+  variable,
+  permutations,
+  pseudocount = 1,
+  ps_ref = NULL,
+  longit = NULL
+) {
   adonis_result_list <- list()
 
   if (distance == "bray") {
-    warning("Using Bray-Curtis distance.
-    Data are not log2-transformed in this function.\n")
+    warning(
+      "Using Bray-Curtis distance.
+    Data are not log2-transformed in this function.\n"
+    )
   }
   if (!is.null(ps_ref)) {
     if (is(ps_ref, "phyloseq")) {
@@ -383,35 +434,46 @@ multiple_permanova <- function(pseq_list,
   } else {
     dat <- microbiome::meta(pseq_list[[1]])
   }
+
   # Set up blocks and overwrite "permutations" if longitudinal testing
   if (!is.null(longit)) {
     warning("Testing with strata or longitudinal design.\n")
     permutations <- permute::how(nperm = permutations)
     permute::setBlocks(permutations) <- with(dat, dat[[longit]])
   } else {
-    warning("Testing without strata a.k.a.
-    testing with cross-sectional design.\n")
+    warning(
+      "Testing without strata a.k.a.
+    testing with cross-sectional design.\n"
+    )
   }
 
   # Perform multiple PERMANOVAs in parallel: fit adonis2 on every pseq in pseq_list
-  adonis_result_list <- future.apply::future_lapply(pseq_list, function(pseq) {
-    # Apply pseudo inside of loop because of different otu-tables per subsample
-    if (distance == "aitchison") {
-      phyloseq::otu_table(pseq) <- phyloseq::otu_table(pseq) + pseudocount
-    }
-    vegan::adonis2(
-      as.formula(
-        paste(
-          "vegan::vegdist(t(phyloseq::otu_table(pseq)),",
-          quote(distance), # vegdist requires quoted method arg
-          ") ~ ",
-          variable
-        )
-      ),
-      data = dat,
-      permutations = permutations
-    )
-  }, future.seed = TRUE)
+  adonis_result_list <- future.apply::future_lapply(
+    pseq_list,
+    function(pseq) {
+      # In case of subsetting data based reference ps
+      if (!is.null(ps_ref)) {
+        pseq <- phyloseq::prune_samples(phyloseq::sample_names(ps_ref), pseq)
+      }
+      # Apply pseudo inside of loop because of different otu-tables per subsample
+      if (distance == "aitchison") {
+        phyloseq::otu_table(pseq) <- phyloseq::otu_table(pseq) + pseudocount
+      }
+      vegan::adonis2(
+        as.formula(
+          paste(
+            "vegan::vegdist(t(phyloseq::otu_table(pseq)),",
+            quote(distance), # vegdist requires quoted method arg
+            ") ~ ",
+            variable
+          )
+        ),
+        data = dat,
+        permutations = permutations
+      )
+    },
+    future.seed = TRUE
+  )
   return(adonis_result_list)
 }
 
@@ -445,9 +507,10 @@ multiple_permanova <- function(pseq_list,
 #' results <- permanova_average(results_adonis, averagef = "median", plot = TRUE)
 #' }
 permanova_average <- function(
-    results_adonis,
-    averagef = "median",
-    plot = TRUE) {
+  results_adonis,
+  averagef = "median",
+  plot = TRUE
+) {
   allowed.methods <- c("median", "mean", "min", "max")
 
   if (!averagef %in% allowed.methods) {
@@ -485,7 +548,7 @@ permanova_average <- function(
   names(out)[c(1, 3)] <- c(paste0("F.", averagef), paste0("p.", averagef))
 
   if (plot == TRUE) {
-# ggplot2-based plotting
+    # ggplot2-based plotting
     library(ggplot2)
 
     # Pseudo-F boxplot
@@ -493,7 +556,8 @@ permanova_average <- function(
     p1 <- ggplot(df_f, aes(x = "", y = statistic)) +
       geom_boxplot(fill = "gray", width = 0.4) +
       labs(
-        x = NULL, y = "pseudo-F statistic"
+        x = NULL,
+        y = "pseudo-F statistic"
       ) +
       theme_classic() +
       theme(axis.text.x = element_blank())
@@ -504,14 +568,24 @@ permanova_average <- function(
     df_p <- data.frame(p_value = pvals)
     p2 <- ggplot(df_p, aes(x = "", y = p_value)) +
       geom_boxplot(fill = "white", width = 0.4) +
-      geom_hline(yintercept = p.Cauchy, color = "red", linetype = "dashed", size = 0.8) +
+      geom_hline(
+        yintercept = p.Cauchy,
+        color = "red",
+        linetype = "dashed",
+        size = 0.8
+      ) +
       labs(
-        x = NULL, y = "p-value"
+        x = NULL,
+        y = "p-value"
       ) +
       annotate(
-        "text", x = 0, y = 0,
+        "text",
+        x = 0,
+        y = 0,
         label = paste("Cauchy p =", signif(p.Cauchy, 3)),
-        color = "red", vjust = -0.5, hjust = -0.5
+        color = "red",
+        vjust = -0.5,
+        hjust = -0.5
       ) +
       theme_classic() +
       theme(axis.text.x = element_blank())
