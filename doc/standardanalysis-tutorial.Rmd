@@ -13,7 +13,10 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = ">",
-  tidy = TRUE
+  tidy = TRUE,
+  fig.width = 7,
+  fig.height = 6,
+  dpi = 96
 )
 ```
 ## Introduction
@@ -38,12 +41,12 @@ The package offers the following functions:
 
   - **Visualization:**
   - `barplot_abundance`: Generate stacked barplots of taxonomic abundances.
-  - `make_pca`: Perform Principal Coordinates Analysis (PCoA) and generate ordination plots.
+  - `make_pca`: Perform Principal Component Analysis (PCA) and generate ordination plots.
   - `make_heatmap`: Generate heatmaps of microbial taxa.
 
 - **Community Composition and Differential Abundance:**
   - `run_ancombc2`: Run differential abundance analysis using ANCOMBC-2.
-  - `display_results`: Display ANCOMBC-2 in optionally interactive tables.
+  - `display_ancombc2_results`: Display ANCOMBC-2 in optionally interactive tables.
 
 Most functions in `standardanalysis` (except `permanova_average` and differential abundance analysis functions) support **parallel** execution using the [`future`](https://future.futureverse.org/) framework. This allows you to speed up computation by distributing the load across multiple CPU cores or nodes, which is especially useful for large datasets or high-performance computing (HPC) environments.
 
@@ -261,7 +264,7 @@ barplot_abundance(
 ```
 
 ## Performing a PCA, and making of ordination plot.
-Samples are coloured by treatment variable, default transformation is center log ratio (CLR). Pseudo-count (shift) is + 1 for all log-transformations
+Samples are coloured by treatment variable, default transformation is centered log ratio (CLR). Pseudo-count (shift) is + 1 for all log-transformations
 ```{r}
 # Optional to also give a different shape to points based on a variable: shape = "My_other_variable"
 make_pca(ps,
