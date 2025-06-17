@@ -163,12 +163,12 @@ display_ancombc2_results <- function(results, analyses = NULL, html = TRUE) {
       "primary"  = "ANCOM-BC2 Primary Analysis"
     )
   }
-  
+
   process_table <- function(df, caption, as_datatable = FALSE) {
     numeric_cols <- sapply(df, is.numeric)
     df[numeric_cols] <- lapply(df[numeric_cols], signif, 3)
     if (as_datatable) {
-      DT::datatable(df, caption = caption, options = list(scrollX = TRUE, dom = "ltipr"))
+      DT::datatable(df, caption = caption, options = list(scrollX = TRUE, dom = "tpr"))
     } else {
       df
     }
@@ -177,7 +177,7 @@ display_ancombc2_results <- function(results, analyses = NULL, html = TRUE) {
   out <- list()
   # Primary as DT::datatable
   out$primary <- process_table(results$res, get_caption("primary"), as_datatable = html)
-  
+
   # Others optionally as plain data frames
   valid <- c("global", "pairwise", "dunnett", "trend")
   if (!is.null(analyses)) {
