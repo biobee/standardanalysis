@@ -4,12 +4,14 @@
 \alias{import_data}
 \title{Importing data}
 \usage{
-import_data(name_biom_file, name_mapping_file)
+import_data(name_biom_file = NULL, name_mapping_file = NULL, factors = NULL)
 }
 \arguments{
 \item{name_biom_file}{The name of the biom file.}
 
 \item{name_mapping_file}{The name of the mapping file.}
+
+\item{factors}{A `char` vector of variable names in the metadata to be used as factors.}
 }
 \value{
 pseq A phyloseq object.
