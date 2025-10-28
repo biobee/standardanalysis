@@ -284,7 +284,7 @@ multiple_test_alpha <- function(
       stop("Provide only 1 pair_by!\n")
     }
     # Make sure all data are paired and ordered on ID variable
-    SID_count <- table(microbiome::meta(pseq)[[X.SampleID]])
+    SID_count <- table(microbiome::meta(pseq)[["X.SampleID"]])
     if (max(SID_count) < 2) {
       stop("Your data are not paired on ", ID)
     }
@@ -292,7 +292,7 @@ multiple_test_alpha <- function(
     ss_meta <- subset(microbiome::meta(pseq), base::get(ID) %in% SID_all)
 
     # Refactor Subject/ pairby from 99 to 81
-    ss_meta[[X.SampleID]] <- factor(ss_meta[[X.SampleID]])
+    ss_meta[["X.SampleID"]] <- factor(ss_meta[["X.SampleID"]])
 
     # Sort the dataframe on ID and grouping variable
     # Only complete pairs are left hereafter
