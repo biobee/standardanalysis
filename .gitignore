@@ -2,3 +2,5 @@
 /Meta/
 inst/doc
 .Rhistory
+.Rprofile
+._*

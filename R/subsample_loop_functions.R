@@ -284,7 +284,7 @@ multiple_test_alpha <- function(
       stop("Provide only 1 pair_by!\n")
     }
     # Make sure all data are paired and ordered on ID variable
-    SID_count <- table(microbiome::meta(pseq)[[X.SampleID]])
+    SID_count <- table(microbiome::meta(pseq)[["X.SampleID"]])
     if (max(SID_count) < 2) {
       stop("Your data are not paired on ", ID)
     }
@@ -292,7 +292,7 @@ multiple_test_alpha <- function(
     ss_meta <- subset(microbiome::meta(pseq), base::get(ID) %in% SID_all)
 
     # Refactor Subject/ pairby from 99 to 81
-    ss_meta[[X.SampleID]] <- factor(ss_meta[[X.SampleID]])
+    ss_meta[["X.SampleID"]] <- factor(ss_meta[["X.SampleID"]])
 
     # Sort the dataframe on ID and grouping variable
     # Only complete pairs are left hereafter
@@ -401,6 +401,7 @@ multiple_test_alpha <- function(
 #' @param pseudocount Numeric. Pseudocount to add to OTU table for Aitchison distance (default: 1).
 #' @param ps_ref Optional. Reference \code{phyloseq} object for metadata subsetting.
 #' @param longit Optional. Name of metadata variable for paired/longitudinal analysis.
+#' @param ... Additional arguments passed to adonis2.
 #' @return (5) A list of adonis2 results, one per rarefied dataset.
 #' @details
 #' (4) \code{multiple_permanova} runs PERMANOVA (\code{\link[vegan]{adonis2}} ) on each rarefied \code{phyloseq} object to test for group differences in community composition. The specified distance metric (e.g., Bray-Curtis, Aitchison) is computed for each rarefied dataset, and the PERMANOVA is performed using the provided metadata variable(s). If a longitudinal variable is specified, permutation blocks are set up accordingly. The output is a list of adonis2 result objects, one per rarefied dataset, allowing assessment of the consistency of PERMANOVA results across rarefactions.
@@ -415,7 +416,8 @@ multiple_permanova <- function(
   permutations,
   pseudocount = 1,
   ps_ref = NULL,
-  longit = NULL
+  longit = NULL,
+  ...
 ) {
   adonis_result_list <- list()
 
@@ -469,9 +471,10 @@ multiple_permanova <- function(
           )
         ),
         data = dat,
-        permutations = permutations
+        permutations = permutations,
+        ...
       )
-    },
+    },...,
     future.seed = TRUE
   )
   return(adonis_result_list)
@@ -480,21 +483,34 @@ multiple_permanova <- function(
 
 # PERMANOVA - results aggregation ==============================================
 #' @describeIn rarefy_multiple Aggregate PERMANOVA Results Across Multiple Rarefactions
-#' @param results_adonis (5) A vector or list of PERMANOVA results as received from the \code{multiple_permanova}.
+#' @param results_adonis A vector or list of PERMANOVA results as received from the \code{multiple_permanova}.
 #' @param averagef Character. The averaging function to use. One of \code{"median"}, \code{"mean"}, \code{"min"}, or \code{"max"}.
 #'   Default (and recommended) is \code{"median"}.
-#' @param plot Logical. if \code{TRUE} (default), boxplots of pseudo-F statistics and p-values across rarefactions are displayed.
-#' @return (5) A named list containing:
-#'   1. \code{F.<averagef>}{The aggregated pseudo-F statistic (e.g., median pseudo-F).
-#'   2. \code{F.IQR}The interquartile range (IQR) of pseudo-F statistics across rarefactions, rounded to 1 decimal, formatted as a string.
-#'   3. \code{p.<averagef>} The aggregated p-value (e.g., median p-value).
-#'   4. \code{p.Cauchy} The aggregated p-value computed using the Aggregated Cauchy Association Test (ACAT).
-#'   5. \code{Fvals} Vector of pseudo-F statistics from each rarefaction.
-#'   6. \code{pvals} Vector of p-values from each rarefaction.
-#' }
+#' @param plot Logical. If \code{TRUE}, boxplots of pseudo-F statistics and p-values across rarefactions are displayed for the first variable.
+#'   Default is \code{FALSE}.
+#' @return A named list containing:
+#'   \describe{
+#'     \item{summary}{A data frame with variable names as row names and three columns:
+#'       \describe{
+#'         \item{<averagef>.F}{The aggregated pseudo-F statistic for each variable (e.g., median.F).}
+#'         \item{<averagef>.p}{The aggregated p-value for each variable (e.g., median.p).}
+#'         \item{Cauchy.p}{The aggregated p-value for each variable computed using the Aggregated Cauchy Association Test (ACAT).}
+#'       }
+#'     }
+#'     \item{Fvals}{A named list of pseudo-F statistic vectors, one for each variable across all rarefactions.}
+#'     \item{pvals}{A named list of p-value vectors, one for each variable across all rarefactions.}
+#'     \item{plots}{(Optional) If \code{plot = TRUE}, a list containing two ggplot objects:
+#'       \describe{
+#'         \item{f}{Boxplot of pseudo-F statistics for the first variable.}
+#'         \item{p}{Boxplot of p-values for the first variable with ACAT p-value indicated by a red dashed line.}
+#'       }
+#'     }
+#'   }
 #' @details
 #' (5) \code{permanova_average} aggregates PERMANOVA results obtained from \code{\link[vegan]{adonis2}} on multiple rarefied \code{phyloseq} objects, the output of \code{multiple_permanova}.
-#' It computes the summary statistic (median, mean, min, or max) of the PERMANOVA pseudo-F statistics and p-values, and combines p-values using the ACAT method (\code{\link{acat}}) for a robust overall significance measure. If \code{plot = TRUE} (default), boxplots visualize the distribution of pseudo-F statistics and p-values, with the ACAT p-value indicated by a red dashed line.
+#' It handles multiple variables from the adonis2 output and computes summary statistics (median, mean, min, or max) of the PERMANOVA pseudo-F statistics and p-values for each variable separately.
+#' P-values are combined using the ACAT method (\code{\link{acat}}) for a robust overall significance measure for each variable.
+#' If \code{plot = TRUE}, boxplots visualize the distribution of pseudo-F statistics and p-values for the first variable, with the ACAT p-value indicated by a red dashed line.
 #'
 #' @references
 #' Liu, Y., & Xie, J. (2019).
@@ -504,61 +520,112 @@ multiple_permanova <- function(
 #' @export
 #' @examples
 #' \dontrun{
-#' results <- permanova_average(results_adonis, averagef = "median", plot = TRUE)
+#' # Run multiple PERMANOVAs
+#' adonis_results <- multiple_permanova(
+#'   pseq_list = rarefied_list,
+#'   distance = "bray",
+#'   variable = "treatment + timepoint",
+#'   permutations = 999
+#' )
+#' 
+#' # Aggregate results across rarefactions
+#' results <- permanova_average(adonis_results, averagef = "median", plot = FALSE)
+#' 
+#' # View summary table
+#' results$summary
+#' 
+#' # Access F-values for a specific variable
+#' results$Fvals$treatment
+#' 
+#' # Access p-values for a specific variable
+#' results$pvals$treatment
+#' 
+#' # Create plots
+#' results_with_plots <- permanova_average(adonis_results, averagef = "median", plot = TRUE)
+#' results_with_plots$plots$f
+#' results_with_plots$plots$p
 #' }
 permanova_average <- function(
   results_adonis,
   averagef = "median",
-  plot = TRUE
+  plot = FALSE
 ) {
   allowed.methods <- c("median", "mean", "min", "max")
-
+  
   if (!averagef %in% allowed.methods) {
     stop(
       "Non-supported average function specified. Allowed methods are one of: ",
       paste(allowed.methods, collapse = ", ")
     )
   }
+  
   average.fun <- match.fun(averagef)
-  # Initialise the vectors for F and p-values
-  pvals <- c()
-  fvals <- c()
-
-  # Extract F and p-values from the adonis2 output list
-  for (res in results_adonis) {
-    pvals <- c(pvals, res$`Pr(>F)`[1]) # Extract p-values
-    fvals <- c(fvals, res$F[1]) # Extract pseudo-F
-  }
-  # Calculate the F IQR (25th-75th percentile)
-  F.IQR <- quantile(fvals, probs = c(0.25, 0.75))
-
-  # Perform the Aggregated Cauchy Association Test (ACAT)
-  p.Cauchy <- acat(pvals)
-
-  # Create an output named list with the results
-  out <- list(
-    F = round(average.fun(fvals), 2),
-    F.IQR = paste(round(F.IQR[1], 2), "-", round(F.IQR[2], 2)),
-    p = average.fun(pvals),
-    p.Cauchy = p.Cauchy,
-    Fvals = fvals,
-    pvals = pvals
+  
+  # Get variable names from the first result (excluding "Residual" and "Total")
+  variable_names <- rownames(results_adonis[[1]])
+  variable_names <- variable_names[!variable_names %in% c("Residual", "Total")]
+  
+  # Initialize data frame to store results
+  result_df <- data.frame(
+    row.names = variable_names,
+    stringsAsFactors = FALSE
   )
-
-  names(out)[c(1, 3)] <- c(paste0("F.", averagef), paste0("p.", averagef))
-
-  if (plot == TRUE) {
+  
+  # Initialize lists to store F and p-values for each variable
+  fvals_list <- list()
+  pvals_list <- list()
+  
+  # Process each variable
+  for (var_name in variable_names) {
+    pvals <- c()
+    fvals <- c()
+    
+    # Extract F and p-values for this variable from all adonis2 results
+    for (res in results_adonis) {
+      var_row <- which(rownames(res) == var_name)
+      if (length(var_row) > 0) {
+        pvals <- c(pvals, res$`Pr(>F)`[var_row])
+        fvals <- c(fvals, res$F[var_row])
+      }
+    }
+    
+    # Store in lists
+    fvals_list[[var_name]] <- fvals
+    pvals_list[[var_name]] <- pvals
+    
+    # Calculate statistics for this variable
+    result_df[var_name, paste0(averagef, ".F")] <- round(average.fun(fvals), 2)
+    result_df[var_name, paste0(averagef, ".p")] <- average.fun(pvals)
+    result_df[var_name, "Cauchy.p"] <- acat(pvals)
+  }
+  
+  # Create output list
+  out <- list(
+    summary = result_df,
+    Fvals = fvals_list,
+    pvals = pvals_list
+  )
+  
+  # Optionally create plots for the first variable
+  if (plot == TRUE && length(variable_names) > 0) {
+    # Plot the first variable
+    var_name <- variable_names[1]
+    
+    fvals <- fvals_list[[var_name]]
+    pvals <- pvals_list[[var_name]]
+    p.Cauchy <- result_df[var_name, "Cauchy.p"]
+    
     # Pseudo-F boxplot
     df_f <- data.frame(statistic = fvals)
     p1 <- ggplot2::ggplot(df_f, ggplot2::aes(x = "", y = statistic)) +
       ggplot2::geom_boxplot(fill = "gray", width = 0.4) +
       ggplot2::labs(
         x = NULL,
-        y = "pseudo-F statistic"
+        y = paste("pseudo-F statistic for", var_name)
       ) +
       ggplot2::theme_classic() +
       ggplot2::theme(axis.text.x = ggplot2::element_blank())
-
+    
     # p-value boxplot with ACAT line
     df_p <- data.frame(p_value = pvals)
     p2 <- ggplot2::ggplot(df_p, ggplot2::aes(x = "", y = p_value)) +
@@ -571,7 +638,7 @@ permanova_average <- function(
       ) +
       ggplot2::labs(
         x = NULL,
-        y = "p-value"
+        y = paste("p-value for", var_name)
       ) +
       ggplot2::annotate(
         "text",
@@ -584,8 +651,10 @@ permanova_average <- function(
       ) +
       ggplot2::theme_classic() +
       ggplot2::theme(axis.text.x = ggplot2::element_blank())
+    
     out$plots <- list(f = p1, p = p2)
   }
+  
   return(out)
 }
 
