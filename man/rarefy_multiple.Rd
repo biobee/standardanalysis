@@ -42,10 +42,11 @@ multiple_permanova(
   permutations,
   pseudocount = 1,
   ps_ref = NULL,
-  longit = NULL
+  longit = NULL,
+  ...
 )
 
-permanova_average(results_adonis, averagef = "median", plot = TRUE)
+permanova_average(results_adonis, averagef = "median", plot = FALSE)
 }
 \arguments{
 \item{pseq}{Your original \code{phyloseq} object for the metadata.}
@@ -58,7 +59,7 @@ permanova_average(results_adonis, averagef = "median", plot = TRUE)
 
 \item{seeds}{Vector of random seeds that you want to use. Possible to leave empty and have seed range to be 1:iterations.}
 
-\item{...}{Additional arguments to  be passed on to \code{phyloseq::rarefy_even_depth}}
+\item{...}{Additional arguments passed to adonis2.}
 
 \item{pseq_list}{(5) List or vector of rarefied \code{phyloseq} objects (from \code{rarefy_multiple}).}
 
@@ -87,9 +88,10 @@ Default (and recommended) is \code{"median"}.}
 
 \item{longit}{Optional. Name of metadata variable for paired/longitudinal analysis.}
 
-\item{results_adonis}{(5) A vector or list of PERMANOVA results as received from the \code{multiple_permanova}.}
+\item{results_adonis}{A vector or list of PERMANOVA results as received from the \code{multiple_permanova}.}
 
-\item{plot}{Logical. if \code{TRUE} (default), boxplots of pseudo-F statistics and p-values across rarefactions are displayed.}
+\item{plot}{Logical. If \code{TRUE}, boxplots of pseudo-F statistics and p-values across rarefactions are displayed for the first variable.
+Default is \code{FALSE}.}
 }
 \value{
 (1) A list of \code{phyloseq} objects with length of amount of \code{iter}
@@ -102,14 +104,24 @@ Default (and recommended) is \code{"median"}.}
 
 (5) A list of adonis2 results, one per rarefied dataset.
 
-(5) A named list containing:
-  1. \code{F.<averagef>}{The aggregated pseudo-F statistic (e.g., median pseudo-F).
-  2. \code{F.IQR}The interquartile range (IQR) of pseudo-F statistics across rarefactions, rounded to 1 decimal, formatted as a string.
-  3. \code{p.<averagef>} The aggregated p-value (e.g., median p-value).
-  4. \code{p.Cauchy} The aggregated p-value computed using the Aggregated Cauchy Association Test (ACAT).
-  5. \code{Fvals} Vector of pseudo-F statistics from each rarefaction.
-  6. \code{pvals} Vector of p-values from each rarefaction.
-}
+A named list containing:
+  \describe{
+    \item{summary}{A data frame with variable names as row names and three columns:
+      \describe{
+        \item{<averagef>.F}{The aggregated pseudo-F statistic for each variable (e.g., median.F).}
+        \item{<averagef>.p}{The aggregated p-value for each variable (e.g., median.p).}
+        \item{Cauchy.p}{The aggregated p-value for each variable computed using the Aggregated Cauchy Association Test (ACAT).}
+      }
+    }
+    \item{Fvals}{A named list of pseudo-F statistic vectors, one for each variable across all rarefactions.}
+    \item{pvals}{A named list of p-value vectors, one for each variable across all rarefactions.}
+    \item{plots}{(Optional) If \code{plot = TRUE}, a list containing two ggplot objects:
+      \describe{
+        \item{f}{Boxplot of pseudo-F statistics for the first variable.}
+        \item{p}{Boxplot of p-values for the first variable with ACAT p-value indicated by a red dashed line.}
+      }
+    }
+  }
 }
 \description{
 This suite of functions provides a workflow for performing and analyzing multiple rarefactions (random subsampling) of a \code{phyloseq} object. Multiple rarefactions help assess the variability and robustness of diversity and community composition metrics to subsampling.
@@ -160,7 +172,9 @@ See the Details section for further information on each function.
 (4) \code{multiple_permanova} runs PERMANOVA (\code{\link[vegan]{adonis2}} ) on each rarefied \code{phyloseq} object to test for group differences in community composition. The specified distance metric (e.g., Bray-Curtis, Aitchison) is computed for each rarefied dataset, and the PERMANOVA is performed using the provided metadata variable(s). If a longitudinal variable is specified, permutation blocks are set up accordingly. The output is a list of adonis2 result objects, one per rarefied dataset, allowing assessment of the consistency of PERMANOVA results across rarefactions.
 
 (5) \code{permanova_average} aggregates PERMANOVA results obtained from \code{\link[vegan]{adonis2}} on multiple rarefied \code{phyloseq} objects, the output of \code{multiple_permanova}.
-It computes the summary statistic (median, mean, min, or max) of the PERMANOVA pseudo-F statistics and p-values, and combines p-values using the ACAT method (\code{\link{acat}}) for a robust overall significance measure. If \code{plot = TRUE} (default), boxplots visualize the distribution of pseudo-F statistics and p-values, with the ACAT p-value indicated by a red dashed line.
+It handles multiple variables from the adonis2 output and computes summary statistics (median, mean, min, or max) of the PERMANOVA pseudo-F statistics and p-values for each variable separately.
+P-values are combined using the ACAT method (\code{\link{acat}}) for a robust overall significance measure for each variable.
+If \code{plot = TRUE}, boxplots visualize the distribution of pseudo-F statistics and p-values for the first variable, with the ACAT p-value indicated by a red dashed line.
 }
 \section{Functions}{
 \itemize{
@@ -186,7 +200,30 @@ median(alpha_pvals)
 permanova_results <- multiple_permanova(pseq_list, distance = "aitchison", variable = "Source", permutations = 9999, longit = "SubjectID")
 
 \dontrun{
-results <- permanova_average(results_adonis, averagef = "median", plot = TRUE)
+# Run multiple PERMANOVAs
+adonis_results <- multiple_permanova(
+  pseq_list = rarefied_list,
+  distance = "bray",
+  variable = "treatment + timepoint",
+  permutations = 999
+)
+
+# Aggregate results across rarefactions
+results <- permanova_average(adonis_results, averagef = "median", plot = FALSE)
+
+# View summary table
+results$summary
+
+# Access F-values for a specific variable
+results$Fvals$treatment
+
+# Access p-values for a specific variable
+results$pvals$treatment
+
+# Create plots
+results_with_plots <- permanova_average(adonis_results, averagef = "median", plot = TRUE)
+results_with_plots$plots$f
+results_with_plots$plots$p
 }
 }
 \references{
