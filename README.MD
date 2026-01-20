@@ -47,7 +47,7 @@ After installing R and R-studio, install the package from github (shown above, i
 You can either use the functions separately (functions can be seen in the vignette) or open the vignette itself and edit it to load your data.
 The structure of the vignette is how you would run your own analysis. Open the vignette like this:
 ```{r}
-vignette('standard-analysis-tutorial', package = 'standardanalysis')
+vignette('standardanalysis-tutorial', package = 'standardanalysis')
 ```
 Alternatively, open in [web browser](https://html-preview.github.io/?url=https://github.com/biobee/standardanalysis/blob/main/doc/standardanalysis-tutorial.html).
 
