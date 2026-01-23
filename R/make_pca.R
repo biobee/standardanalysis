@@ -42,7 +42,6 @@ make_pca <- function(pseq,
   p <- ggfortify:::autoplot.prcomp(
     pr_comp,
     colour = colour_by,
-    size = 3,
     data = microbiome::meta(pseq),
     scale = FALSE,
     ...
